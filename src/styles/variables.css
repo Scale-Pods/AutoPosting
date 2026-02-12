@@ -1,0 +1,88 @@
+:root {
+  /* Brand Colors */
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --primary-light: #eef2ff;
+
+  /* Status Colors */
+  --status-new: #3b82f6; /* Blue */
+  --status-uploaded: #8b5cf6; /* Purple */
+  --status-approved: #10b981; /* Green */
+  --status-rejected: #ef4444; /* Red */
+  --status-caption: #f59e0b; /* Amber */
+  --status-posted: #6b7280; /* Gray */
+
+  /* Neutral Colors */
+  --bg-body: #f9fafb;
+  --bg-card: #ffffff;
+  --bg-sidebar: #ffffff;
+  --text-main: #111827;
+  --text-muted: #6b7280;
+  --border: #e5e7eb;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg:
+    0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+
+  /* Spacing */
+  --radius: 0.5rem;
+  --header-height: 64px;
+  --sidebar-width: 260px;
+
+  /* Semantic Variables (Light Mode) */
+  --bg-subtle: #F9FAFB;
+  --bg-error-subtle: #FEF2F2;
+  --border-error-subtle: #FECACA;
+  --bg-success-subtle: #DEF7EC;
+  --text-success: #03543F;
+  --text-error: #991B1B;
+
+  /* Login & Info */
+  --bg-gradient-brand: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%);
+  --bg-info-subtle: #EFF6FF;
+  --text-info-header: #1E40AF;
+  --text-info-body: #3B82F6;
+}
+
+body.dark {
+  /* Dark Blue Theme */
+  --primary: #818CF8;        /* Lighter Indigo for dark mode */
+  --primary-hover: #6366F1;
+  --primary-light: #1E1B4B;  /* Very dark indigo background for active items */
+  
+  --bg-body: #0F172A;        /* Slate 900 */
+  --bg-card: #1E293B;        /* Slate 800 */
+  --bg-sidebar: #0F172A;     /* Slate 900 */
+  
+  --text-main: #F8FAFC;      /* Slate 50 */
+  --text-muted: #94A3B8;     /* Slate 400 */
+  --border: #334155;         /* Slate 700 */
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+  
+  /* Adjust status colors for dark mode legibility */
+  --status-new: #1D4ED8;       
+  --status-uploaded: #7C3AED;  
+  --status-approved: #059669;  
+  --status-rejected: #DC2626; 
+  --status-caption: #D97706;   
+  --status-posted: #374151;
+
+  /* Semantic Overrides */
+  --bg-subtle: #1E293B;       /* Match Card BG for subtle areas */
+  --bg-error-subtle: #450A0A; /* Dark Red Background */
+  --border-error-subtle: #7F1D1D; /* Dark Red Border */
+  --bg-success-subtle: #064E3B; /* Dark Green Background */
+  --text-success: #34D399;      /* Light Green Text */
+  --text-error: #FECACA;      /* Light Red Text */
+
+  /* Login & Info */
+  --bg-gradient-brand: linear-gradient(135deg, #0F172A 0%, #1E1B4B 100%);
+  --bg-info-subtle: #172554;
+  --text-info-header: #60A5FA;
+  --text-info-body: #93C5FD;
+}
