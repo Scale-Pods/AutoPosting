@@ -50,7 +50,10 @@ export const dataService = {
   // Credentials Management
   fetchUsers: async (email = '') => {
       try {
-        const url = `${import.meta.env.VITE_FETCH_ALL_WEBHOOK || '/webhook/Fetchall'}?action=FetchUsers${email ? `&email=${encodeURIComponent(email)}` : ''}`;
+        const validUrl = import.meta.env.VITE_FETCH_ALL_WEBHOOK && import.meta.env.VITE_FETCH_ALL_WEBHOOK.startsWith('http') 
+            ? import.meta.env.VITE_FETCH_ALL_WEBHOOK 
+            : 'https://n8n.srv1010832.hstgr.cloud/webhook/Fetchall';
+        const url = `${validUrl}?action=FetchUsers${email ? `&email=${encodeURIComponent(email)}` : ''}`;
         console.log('Fetching users from:', url);
         const response = await fetch(url, {
             method: 'GET',
@@ -163,7 +166,10 @@ export const dataService = {
             ...newUser,
             createdAt: new Date().toISOString()
         });
-        await fetch(`${import.meta.env.VITE_FETCH_ALL_WEBHOOK || '/webhook/Fetchall'}?${params.toString()}`, {
+        const validUrl = import.meta.env.VITE_FETCH_ALL_WEBHOOK && import.meta.env.VITE_FETCH_ALL_WEBHOOK.startsWith('http') 
+            ? import.meta.env.VITE_FETCH_ALL_WEBHOOK 
+            : 'https://n8n.srv1010832.hstgr.cloud/webhook/Fetchall';
+        await fetch(`${validUrl}?${params.toString()}`, {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' }
         });
@@ -181,7 +187,10 @@ export const dataService = {
             id: userId,
             password: newPassword
         });
-        await fetch(`${import.meta.env.VITE_FETCH_ALL_WEBHOOK || '/webhook/Fetchall'}?${params.toString()}`, {
+        const validUrl = import.meta.env.VITE_FETCH_ALL_WEBHOOK && import.meta.env.VITE_FETCH_ALL_WEBHOOK.startsWith('http') 
+            ? import.meta.env.VITE_FETCH_ALL_WEBHOOK 
+            : 'https://n8n.srv1010832.hstgr.cloud/webhook/Fetchall';
+        await fetch(`${validUrl}?${params.toString()}`, {
             method: 'GET', 
             headers: { 'Content-Type': 'application/json' }
         });
@@ -194,12 +203,16 @@ export const dataService = {
   
   getTasks: async () => {
     try {
-      console.log('Fetching tasks from:', `${import.meta.env.VITE_FETCH_ALL_WEBHOOK || '/webhook/Fetchall'}?action=FetchActiveCampaigns`);
+      const validUrl = import.meta.env.VITE_FETCH_ALL_WEBHOOK && import.meta.env.VITE_FETCH_ALL_WEBHOOK.startsWith('http') 
+          ? import.meta.env.VITE_FETCH_ALL_WEBHOOK 
+          : 'https://n8n.srv1010832.hstgr.cloud/webhook/Fetchall';
+      
+      console.log('Fetching tasks from:', `${validUrl}?action=FetchActiveCampaigns`);
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
-      const response = await fetch(`${import.meta.env.VITE_FETCH_ALL_WEBHOOK || '/webhook/Fetchall'}?action=FetchActiveCampaigns`, {
+      const response = await fetch(`${validUrl}?action=FetchActiveCampaigns`, {
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal
       });
@@ -476,7 +489,11 @@ export const dataService = {
             designUrl
         });
 
-        const url = `${import.meta.env.VITE_FETCH_ALL_WEBHOOK || '/webhook/Fetchall'}?${params.toString()}`;
+        const validUrl = import.meta.env.VITE_FETCH_ALL_WEBHOOK && import.meta.env.VITE_FETCH_ALL_WEBHOOK.startsWith('http') 
+            ? import.meta.env.VITE_FETCH_ALL_WEBHOOK 
+            : 'https://n8n.srv1010832.hstgr.cloud/webhook/Fetchall';
+
+        const url = `${validUrl}?${params.toString()}`;
         console.log('Requesting AI Caption from:', url);
 
         // Attempt to call n8n for real AI generation
@@ -535,8 +552,12 @@ export const dataService = {
   getDesigners: async () => {
     try {
       // Try fetching from Webhook first
-      console.log('Fetching designers from:', `${import.meta.env.VITE_FETCH_ALL_WEBHOOK || '/webhook/Fetchall'}?action=FetchDesigners`);
-      const response = await fetch(`${import.meta.env.VITE_FETCH_ALL_WEBHOOK || '/webhook/Fetchall'}?action=FetchDesigners`, {
+      const validUrl = import.meta.env.VITE_FETCH_ALL_WEBHOOK && import.meta.env.VITE_FETCH_ALL_WEBHOOK.startsWith('http') 
+          ? import.meta.env.VITE_FETCH_ALL_WEBHOOK 
+          : 'https://n8n.srv1010832.hstgr.cloud/webhook/Fetchall';
+
+      console.log('Fetching designers from:', `${validUrl}?action=FetchDesigners`);
+      const response = await fetch(`${validUrl}?action=FetchDesigners`, {
         headers: { 'Content-Type': 'application/json' }
       });
       
