@@ -16,14 +16,14 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
 
 
   useEffect(() => {
-    fetchTasks();
+    fetchTasks(true);
   }, []);
 
-  const fetchTasks = async () => {
-    setLoading(true);
+  const fetchTasks = async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     const allTasks = await dataService.getTasks();
     setTasks(allTasks); 
-    setLoading(false);
+    if (showLoading) setLoading(false);
   };
 
   const handleUploadClick = (task) => {
@@ -81,9 +81,17 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
         return;
     }
 
-    await dataService.uploadDesign(uploadingTask.id, designUrl);
+    // Optimistic Update
+    setTasks(prev => prev.map(t => t.id === uploadingTask.id ? { ...t, status: 'Design Uploaded', designUrl: designUrl } : t));
+    
+    // Close modal immediately
+    const tempId = uploadingTask.id;
+    const tempUrl = designUrl;
     handleCloseModal();
-    fetchTasks();
+
+    // API Call
+    await dataService.uploadDesign(tempId, tempUrl);
+    fetchTasks(false); // Sync in background
   };
 
   // Filter tasks based on view prop

@@ -6,6 +6,7 @@ import Login from './pages/Login';
 import DesignerDashboard from './pages/DesignerDashboard';
 import ClientDashboard from './pages/ClientDashboard';
 import Settings from './pages/Settings';
+import LeadMagnets from './pages/LeadMagnets';
 import './styles/global.css';
 
 // Protected Route Component
@@ -55,6 +56,7 @@ function App() {
                 <Route path="/client" element={<ClientDashboard />} />
                 <Route path="/client/approvals" element={<Placeholder title="Pending Approvals" />} />
                 <Route path="/client/settings" element={<Settings />} />
+                <Route path="/client/lead-magnets" element={<LeadMagnets />} />
              </Route>
           </Route>
 

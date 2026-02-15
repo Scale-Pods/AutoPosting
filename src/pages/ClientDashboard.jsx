@@ -35,40 +35,51 @@ const ClientDashboard = () => {
     status: 'New'
   });
 
-  const fetchTasks = async () => {
-    setLoading(true);
+  const fetchTasks = async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     const allTasks = await dataService.getTasks();
     const allDesigners = await dataService.getDesigners(); 
     setTasks(allTasks);
     setDesigners(allDesigners);
-    setLoading(false);
+    if (showLoading) setLoading(false);
   };
 
   useEffect(() => {
-    fetchTasks();
+    fetchTasks(true);
   }, []);
 
   const handleApprove = async (id) => {
     if (confirm('Are you sure you want to approve this design?')) {
+        // Optimistic Update
+        setTasks(prev => prev.map(t => t.id === id ? { ...t, status: 'Approved' } : t));
+        
         await dataService.approveDesign(id);
-        fetchTasks();
+        // Background fetch to sync
+        fetchTasks(false);
     }
   };
 
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
     const designerObj = designers.find(d => String(d.id) === String(newCampaign.designerId));
-    const campaignData = {
+    
+    // Create optimistic task object (temporary ID until confirmed)
+    const tempId = `temp-${Date.now()}`;
+    const optimisticTask = {
+      id: tempId,
       ...newCampaign,
       designerName: designerObj ? designerObj.name : 'Unassigned',
       designerEmail: designerObj ? designerObj.email : '',
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      status: 'New'
     };
+
+    // Optimistic Update
+    setTasks(prev => [optimisticTask, ...prev]);
+    setIsModalOpen(false);
     
-    const success = await dataService.createTask(campaignData);
-    if (success) {
-      setIsModalOpen(false);
-      setNewCampaign({
+    // Reset Form
+    setNewCampaign({
         clientName: 'Client',
         campaignName: '',
         brief: '',
@@ -78,25 +89,40 @@ const ClientDashboard = () => {
         designerId: '',
         postType: 'Static',
         status: 'New'
-      });
-      fetchTasks();
+    });
+
+    // Actual API Call
+    const createdTask = await dataService.createTask(optimisticTask);
+    
+    // Replace temp task with real one (if ID changed or just to sync)
+    if (createdTask) {
+        setTasks(prev => prev.map(t => t.id === tempId ? createdTask : t));
     }
+    // Background sync
+    fetchTasks(false);
   };
 
   const handleDelete = async (id, campaignName) => {
     if (confirm(`Are you sure you want to delete "${campaignName}"?`)) {
+      setTasks(prev => prev.filter(t => t.id !== id)); // Optimistic delete
       await dataService.deleteTask(id, campaignName);
-      fetchTasks();
+      fetchTasks(false);
     }
   };
 
   const handleReject = async (e) => {
     e.preventDefault();
     if (!comment.trim()) return alert('Please provide feedback for rejection.');
-    await dataService.rejectDesign(reviewingId, comment);
+    
+    // Optimistic Update
+    setTasks(prev => prev.map(t => t.id === reviewingId ? { ...t, status: 'Rejected', feedback: comment } : t));
+    
+    const idToReject = reviewingId;
     setReviewingId(null);
     setComment('');
-    fetchTasks();
+
+    await dataService.rejectDesign(idToReject, comment);
+    fetchTasks(false);
   };
 
   if (loading) return <LoadingScreen />;
@@ -305,7 +331,7 @@ const ClientDashboard = () => {
                                     />
                                     <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                                         <button 
-                                            onClick={(e) => { e.stopPropagation(); submitRejection(); }} 
+                                            onClick={(e) => { e.stopPropagation(); handleReject(e); }} 
                                             className="btn btn-danger" 
                                             style={{ flex: 1, fontSize: '0.8rem', whiteSpace: 'nowrap' }}
                                         >

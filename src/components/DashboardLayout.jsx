@@ -13,7 +13,8 @@ import {
   Briefcase,
   Sun,
   Moon,
-  Settings
+  Settings,
+  Magnet
 } from 'lucide-react';
 import '../styles/global.css';
 import CalendarView from './CalendarView';
@@ -136,6 +137,7 @@ const DashboardLayout = () => {
              <>
                <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase' }}>Campaigns</div>
                <SidebarItem to="/client" icon={Briefcase} label="All Campaigns" onClick={() => setMobileMenuOpen(false)} />
+               <SidebarItem to="/client/lead-magnets" icon={Magnet} label="Lead Magnets" onClick={() => setMobileMenuOpen(false)} />
              </>
           )}
         </nav>

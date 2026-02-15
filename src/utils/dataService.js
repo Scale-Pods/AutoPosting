@@ -620,6 +620,165 @@ export const dataService = {
     return defaults;
   },
 
+  getLeadMagnets: async () => {
+    try {
+        const validUrl = import.meta.env.VITE_FETCH_ALL_WEBHOOK && import.meta.env.VITE_FETCH_ALL_WEBHOOK.startsWith('http') 
+            ? import.meta.env.VITE_FETCH_ALL_WEBHOOK 
+            : 'https://n8n.srv1010832.hstgr.cloud/webhook/Fetchall';
+        
+        const url = `${validUrl}?action=Leadmagnet`;
+        console.log('Fetching lead magnets from:', url);
+        
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            console.log('Lead Magnets Data:', data);
+            
+            let items = [];
+            if (Array.isArray(data)) {
+                if (data.length > 0 && data[0].json) {
+                    items = data.map(item => item.json);
+                } else if (data.length > 0 && data[0].data && Array.isArray(data[0].data)) {
+                    items = data[0].data;
+                } else {
+                    items = data;
+                }
+            } else if (data && data.data && Array.isArray(data.data)) {
+                items = data.data;
+            } else if (typeof data === 'object') {
+                items = [data];
+            }
+
+            return items.map((item, index) => ({
+                // Valid ID check: Prioritize 'ID' (case sensitive from sheet) or 'id', then fallback to row_number only if ID is missing
+                id: item.ID || item.id || item.row_number || `lm-${index}`,
+                word: item.Word || item.word || '',
+                text: item['Text to be sent '] || item['Text to be sent'] || item.text || '',
+                // Keep original data for debugging if needed
+                _original: item
+            }));
+        }
+    } catch (e) {
+        console.error("Failed to fetch lead magnets:", e);
+    }
+    
+    // Fallback Mock Data
+    return [
+        { id: 'LM-MOCK-1', word: 'POD', text: 'Want to talk to our team?\n\n🔘 Drop your details...' },
+        { id: 'LM-MOCK-2', word: 'SYSTEM', text: '' },
+        { id: 'LM-MOCK-3', word: 'CRM', text: '' }
+    ];
+  },
+
+  updateLeadMagnet: async (id, word, text) => {
+    try {
+        const updateUrl = 'https://n8n.srv1010832.hstgr.cloud/webhook/3b33cbef-f527-4300-873b-5f8d5e3beeea';
+        
+        console.log(`Updating Lead Magnet [${id}]:`, { word, text });
+
+        const response = await fetch(updateUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'updatelm', 
+                id: id,
+                // row_number removed as per request to use Unique ID only
+                Word: word.toUpperCase(),
+                'Text to be sent ': text
+            })
+        });
+        
+        if (response.ok) {
+            console.log('Lead Magnet Updated Successfully');
+            return true;
+        }
+    } catch (e) {
+        console.error("Failed to update lead magnet:", e);
+    }
+    return false;
+  },
+
+  createLeadMagnet: async (word, text) => {
+    try {
+        const updateUrl = 'https://n8n.srv1010832.hstgr.cloud/webhook/3b33cbef-f527-4300-873b-5f8d5e3beeea';
+        
+        // Generate Unique ID
+        const uniqueId = `LM-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+        
+        console.log(`Creating Lead Magnet [${uniqueId}]:`, { word, text });
+
+        const response = await fetch(updateUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'Leadmagnet', 
+                subAction: 'create', 
+                id: uniqueId, // Send Unique ID
+                row_number: uniqueId, // Map to row_number as well for compatibility
+                Word: word.toUpperCase(),
+                'Text to be sent ': text
+            })
+        });
+        
+        if (response.ok) {
+            console.log('Lead Magnet Created Successfully');
+            return uniqueId; // Return the ID instead of just true
+        }
+    } catch (e) {
+        console.error("Failed to create lead magnet:", e);
+    }
+    return false;
+  },
+
+  generateLeadMagnetReply: async (word, currentText = '') => {
+      try {
+          const validUrl = import.meta.env.VITE_FETCH_ALL_WEBHOOK && import.meta.env.VITE_FETCH_ALL_WEBHOOK.startsWith('http') 
+              ? import.meta.env.VITE_FETCH_ALL_WEBHOOK 
+              : 'https://n8n.srv1010832.hstgr.cloud/webhook/Fetchall';
+          
+          const params = new URLSearchParams({
+              action: 'LMgen',
+              keyword: word.toUpperCase(),
+              current_reply: currentText // Send existing text for context
+          });
+          
+          const url = `${validUrl}?${params.toString()}`;
+          console.log('Generating Lead Magnet Reply from:', url);
+          
+          const response = await fetch(url, {
+              method: 'GET',
+              headers: { 'Content-Type': 'application/json' }
+          });
+          
+          if (response.ok) {
+              const data = await response.json();
+              console.log('LMgen result:', data);
+              
+              let result = data;
+              // Handle n8n wrapping
+              if (Array.isArray(data) && data.length > 0) {
+                  result = data[0].json || data[0].data || data[0];
+              } else if (data && data.data) {
+                  result = data.data;
+              }
+              
+              // Extract text content from likely fields
+              const replyText = result.caption || result.output || result.text || result.reply || result.message || result.answer || result.content || result.result || result.generated_text || (typeof result === 'string' ? result : '');
+              
+              if (replyText) return replyText;
+          }
+      } catch (e) {
+          console.error("LMgen failed:", e);
+      }
+      
+      // Fallback if failed
+      return `Here is the link for ${word}: [LINK]`;
+  },
+
   addDesigner: async (designer) => {
     const stored = localStorage.getItem('mw_designers');
     const designers = stored ? JSON.parse(stored) : [];
