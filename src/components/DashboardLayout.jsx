@@ -113,14 +113,17 @@ const DashboardLayout = () => {
       id="sidebar"
       >
         <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border)', textAlign: 'center' }}>
-          <div style={{ marginBottom: '8px' }}>
+          <div>
              <img 
               src={isDark ? '/logo-dark.svg' : '/logo-light.svg'}
               alt="ScalePods Logo" 
-              style={{ width: '80%', height: '50px', objectFit: 'contain', objectPosition: 'center' }}
+              style={{ width: '100%', maxWidth: '180px', height: 'auto', margin: '0 auto', display: 'block' }}
              />
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.5px' }}>Auto Post System</div>
+          {/* Only show subtitle for light mode since dark mode logo includes it */}
+          {!isDark && (
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.5px', marginTop: '8px' }}>Auto Post System</div>
+          )}
         </div>
 
         <nav style={{ flex: 1, padding: '1rem' }}>

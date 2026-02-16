@@ -1,40 +1,6 @@
-<svg width="280" height="80" viewBox="0 0 280 80" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <style>
-      @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@700display=swap');
-      .brand-text-light { 
-        fill: #000000; 
-        font-family: 'Poppins', 'Arial', sans-serif; 
-        font-weight: 700; 
-        font-size: 42px;
-        letter-spacing: -0.5px;
-      }
-      .pods-circle-light {
-        fill: #000000;
-      }
-    </style>
-  </defs>
-  
-  <!-- Background (transparent for light mode) -->
-  <rect width="280" height="80" fill="transparent"/>
-  
-  <!-- ScalePods text with decorative circle pattern in 'o' -->
-  <text x="140" y="52" class="brand-text-light" text-anchor="middle">
-    ScaleP
-  </text>
-  
-  <!-- Circle pattern for the 'o' in Pods -->
-  <g transform="translate(208, 36)">
-    <circle cx="0" cy="0" r="3" class="pods-circle-light"/>
-    <circle cx="6" cy="-5" r="1.8" class="pods-circle-light" opacity="0.7"/>
-    <circle cx="6" cy="5" r="1.8" class="pods-circle-light" opacity="0.7"/>
-    <circle cx="-6" cy="-5" r="1.8" class="pods-circle-light" opacity="0.7"/>
-    <circle cx="-6" cy="5" r="1.8" class="pods-circle-light" opacity="0.7"/>
-    <circle cx="9" cy="0" r="1.2" class="pods-circle-light" opacity="0.5"/>
-    <circle cx="-9" cy="0" r="1.2" class="pods-circle-light" opacity="0.5"/>
-    <circle cx="0" cy="9" r="1.2" class="pods-circle-light" opacity="0.5"/>
-    <circle cx="0" cy="-9" r="1.2" class="pods-circle-light" opacity="0.5"/>
-  </g>
-  
-  <text x="222" y="52" class="brand-text-light">ds</text>
+<svg width="200" height="40" viewBox="0 0 200 40" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .title { font: bold 28px 'Segoe UI', Arial, sans-serif; fill: #000000; }
+  </style>
+  <text x="100" y="28" text-anchor="middle" class="title">ScalePods</text>
 </svg>
