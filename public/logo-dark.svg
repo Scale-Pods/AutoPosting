@@ -1,0 +1,50 @@
+<svg width="280" height="100" viewBox="0 0 280 100" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@700;400display=swap');
+      .brand-text { 
+        fill: white; 
+        font-family: 'Poppins', 'Arial', sans-serif; 
+        font-weight: 700; 
+        font-size: 38px;
+        letter-spacing: -0.5px;
+      }
+      .subtitle { 
+        fill: white; 
+        font-family: 'Poppins', 'Arial', sans-serif; 
+        font-size: 13px;
+        font-weight: 400;
+        letter-spacing: 1.5px;
+      }
+      .pods-circle {
+        fill: white;
+      }
+    </style>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="280" height="100" fill="#1e293b" rx="0"/>
+  
+  <!-- ScalePods text with decorative circle pattern in 'o' -->
+  <text x="140" y="48" class="brand-text" text-anchor="middle">
+    ScaleP
+  </text>
+  
+  <!-- Circle pattern for the 'o' in Pods -->
+  <g transform="translate(188, 32)">
+    <circle cx="0" cy="0" r="2.5" class="pods-circle"/>
+    <circle cx="5" cy="-4" r="1.5" class="pods-circle" opacity="0.7"/>
+    <circle cx="5" cy="4" r="1.5" class="pods-circle" opacity="0.7"/>
+    <circle cx="-5" cy="-4" r="1.5" class="pods-circle" opacity="0.7"/>
+    <circle cx="-5" cy="4" r="1.5" class="pods-circle" opacity="0.7"/>
+    <circle cx="8" cy="0" r="1" class="pods-circle" opacity="0.5"/>
+    <circle cx="-8" cy="0" r="1" class="pods-circle" opacity="0.5"/>
+    <circle cx="0" cy="8" r="1" class="pods-circle" opacity="0.5"/>
+    <circle cx="0" cy="-8" r="1" class="pods-circle" opacity="0.5"/>
+  </g>
+  
+  <text x="200" y="48" class="brand-text">ds</text>
+  
+  <!-- Subtitle -->
+  <text x="140" y="68" class="subtitle" text-anchor="middle">AUTO POST SYSTEM</text>
+</svg>

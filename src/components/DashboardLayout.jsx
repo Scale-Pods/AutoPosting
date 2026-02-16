@@ -115,9 +115,9 @@ const DashboardLayout = () => {
         <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border)', textAlign: 'center' }}>
           <div style={{ marginBottom: '8px' }}>
              <img 
-              src="https://framerusercontent.com/images/sTvMZBHEzwH4fTjPgKO2PS3htho.png?scale-down-to=2048&width=2363&height=2363" 
-              alt="Logo" 
-              style={{ width: '80%', height: '50px', objectFit: 'cover', objectPosition: 'center' }}
+              src={isDark ? '/logo-dark.svg' : '/logo-light.svg'}
+              alt="ScalePods Logo" 
+              style={{ width: '80%', height: '50px', objectFit: 'contain', objectPosition: 'center' }}
              />
           </div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.5px' }}>Auto Post System</div>
