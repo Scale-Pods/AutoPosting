@@ -115,7 +115,7 @@ export const dataService = {
           const keys = Object.keys(u);
           
           // Use robust key finding for all critical fields
-          const findKey = (patterns) => keys.find(k => patterns.some(p => k.toLowerCase().includes(p.toLowerCase())));
+          const findKey = (patterns) => keys.find(k => patterns.some(p => String(k).toLowerCase().includes(String(p).toLowerCase())));
           
           const emailKey = findKey(['email', 'username', 'user']);
           const passKey = findKey(['password', 'pwd', 'pass']);
@@ -269,17 +269,17 @@ export const dataService = {
             id: item['Unique ID'] || item.id || (item.row_number ? `row-${item.row_number}` : Math.random().toString(36).substr(2, 9)),
             campaignName: item.Campaign || item.campaign || 'Untitled Campaign',
             brief: String(item['Brief '] || item.Brief || item.brief || ''), 
-            deadline: item.Deadline || item.deadline || '',
-            status: status,
-            designerName: item['Designer Assigned'] || item['Designer'] || 'Unassigned',
+            deadline: String(item.Deadline || item.deadline || ''),
+            status: String(status),
+            designerName: String(item['Designer Assigned'] || item['Designer'] || 'Unassigned'),
             clientName: 'Client', // Default for now
-            designUrl: designUrl, 
+            designUrl: designUrl ? String(designUrl) : null,
             feedback: item.Reason || item.Feedback || item.Comment || null,
-            postType: item['Post Type'] || item['Type'] || 'Static',
-            uploadDate: item['Upload Date'] || '', 
-            uploadTime: item['Upload Time'] || '',  
-            caption: item['Caption'] || '', 
-            hashtags: item['Hashtag'] || item['Hashtags'] || '' 
+            postType: String(item['Post Type'] || item['Type'] || 'Static'),
+            uploadDate: String(item['Upload Date'] || ''),
+            uploadTime: String(item['Upload Time'] || ''),
+            caption: String(item['Caption'] || ''),
+            hashtags: String(item['Hashtag'] || item['Hashtags'] || '') 
         };
       });
     } catch (error) {
@@ -521,7 +521,7 @@ export const dataService = {
     }
 
     // Fallback Simulation (more sophisticated)
-    const isVideo = designUrl && (designUrl.includes('.mp4') || designUrl.includes('reel'));
+    const isVideo = designUrl && (String(designUrl).includes('.mp4') || String(designUrl).includes('reel'));
     const mediaType = isVideo ? 'this reel' : 'this image';
     
     // Simulate API delay
@@ -586,7 +586,7 @@ export const dataService = {
               // Filter to ONLY designers
               const filtered = designers.filter(d => {
                   const keys = Object.keys(d);
-                  const roleKey = keys.find(k => k.toLowerCase().includes('role') || k.toLowerCase().includes('type'));
+                  const roleKey = keys.find(k => String(k).toLowerCase().includes('role') || String(k).toLowerCase().includes('type'));
                   const roleValue = roleKey ? String(d[roleKey]).toLowerCase().trim() : '';
                   return roleValue === 'designer';
               });

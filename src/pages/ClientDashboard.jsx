@@ -32,6 +32,7 @@ const ClientDashboard = () => {
     uploadDate: '', // [NEW]
     uploadTime: '', // [NEW]
     designerId: '', // [NEW]
+    postType: 'Static', // [FIX] Ensure default
     status: 'New'
   });
 
@@ -217,13 +218,13 @@ const ClientDashboard = () => {
                         
                         {(() => {
                             // Relaxed regex to capture ID between /d/ and / (or end), or id=...
-                            const driveId = task.designUrl && task.designUrl.includes('drive.google.com') 
+                            const driveId = task.designUrl && typeof task.designUrl === 'string' && task.designUrl.includes('drive.google.com') 
                                 ? (task.designUrl.match(/\/d\/([^/]+)/)?.[1] || task.designUrl.match(/id=([^&]+)/)?.[1])
                                 : null;
                                 
                             // Determine if this is a Vertical format (Reel/Story) or standard Video
                             const isVertical = task.postType === 'Reel' || task.postType === 'Story (Reel)';
-                            const isVideoType = isVertical || task.postType.includes('Video');
+                            const isVideoType = isVertical || (task.postType && task.postType.includes && task.postType.includes('Video'));
                             
                             // Determine Aspect Ratio
                             const containerRatio = isVertical ? '9/16' : (isVideoType ? '16/9' : undefined);
@@ -532,14 +533,14 @@ const ClientDashboard = () => {
                             borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border)',
                             background: '#000', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px' 
                         }}>
-                             {selectedTask.designUrl.includes('drive.google.com') ? (
+                             {selectedTask.designUrl && typeof selectedTask.designUrl === 'string' && selectedTask.designUrl.includes('drive.google.com') ? (
                                 <iframe 
                                     title="Full Preview"
                                     src={`https://drive.google.com/file/d/${selectedTask.designUrl.match(/\/d\/([^/]+)/)?.[1] || selectedTask.designUrl.match(/id=([^&]+)/)?.[1]}/preview`}
                                     style={{ width: '100%', height: '400px', border: 'none' }}
                                     allow="autoplay; fullscreen"
                                 ></iframe>
-                             ) : selectedTask.postType.includes('Video') || selectedTask.postType === 'Reel' || selectedTask.designUrl.match(/\.(mp4|mov)$/i) ? (
+                             ) : ((selectedTask.postType && selectedTask.postType.includes && selectedTask.postType.includes('Video')) || selectedTask.postType === 'Reel' || (selectedTask.designUrl && typeof selectedTask.designUrl === 'string' && selectedTask.designUrl.match(/\.(mp4|mov)$/i))) ? (
                                 <video src={selectedTask.designUrl} controls style={{ maxWidth: '100%', maxHeight: '500px' }} />
                              ) : (
                                 <img src={selectedTask.designUrl} alt="Full Preview" style={{ maxWidth: '100%', maxHeight: '500px', objectFit: 'contain' }} />
