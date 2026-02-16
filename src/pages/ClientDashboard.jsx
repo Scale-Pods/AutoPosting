@@ -298,7 +298,7 @@ const ClientDashboard = () => {
                                                             </button>
                                                         </div>
                                                     </div>
-                                                ) : isVideo(task.designUrl) ? (
+                                                ) : (task.designUrl && typeof task.designUrl === 'string' && (task.designUrl.includes('.mp4') || task.designUrl.includes('.mov') || task.designUrl.includes('reel'))) ? (
                                                     <video src={task.designUrl} style={{ width: '100%', height: '100%', objectFit: 'contain' }} muted loop autoPlay playsInline controls onClick={(e) => e.stopPropagation()} />
                                                 ) : (
                                                     <img 
