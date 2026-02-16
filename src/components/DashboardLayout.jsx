@@ -14,7 +14,8 @@ import {
   Sun,
   Moon,
   Settings,
-  Magnet
+  Magnet,
+  PanelLeft // Added
 } from 'lucide-react';
 import '../styles/global.css';
 import CalendarView from './CalendarView';
@@ -43,11 +44,13 @@ const SidebarItem = ({ to, icon: Icon, label, onClick }) => (
 const DashboardLayout = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  // Initialize Sidebar state based on screen width
+  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 768);
   const [isDark, setIsDark] = useState(false);
   const [calendarTasks, setCalendarTasks] = useState([]);
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedDateTasks, setSelectedDateTasks] = useState([]);
+  const [isLogoutHovered, setIsLogoutHovered] = useState(false);
 
   // Robust role check
   const userRole = (user?.role || '').toLowerCase();
@@ -87,11 +90,12 @@ const DashboardLayout = () => {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg-body)', color: 'var(--text-main)' }}>
-      {/* Mobile Overlay */}
-      {mobileMenuOpen && (
+      {/* Mobile Overlay - Only show if sidebar is open AND we are on mobile (screen < 768px) */}
+      {isSidebarOpen && window.innerWidth < 768 && (
         <div 
-          onClick={() => setMobileMenuOpen(false)}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 40 }} 
+          onClick={() => setIsSidebarOpen(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 40 }}
+          className="md:hidden"
         />
       )}
 
@@ -103,13 +107,18 @@ const DashboardLayout = () => {
         height: '100vh',
         position: 'fixed',
         top: 0,
-        left: mobileMenuOpen ? 0 : '-100%',
+        left: 0, // Always 0, we control visibility via transform or display
         zIndex: 50,
-        transition: 'left 0.3s ease',
+        transition: 'all 0.3s ease',
         display: 'flex',
         flexDirection: 'column',
+        // Mobile Logic: If open -> translate 0. If closed -> translate -100%.
+        // Desktop Logic: If open -> sticky/visible (handled by media query override below?). 
+        // actually simpler to use transform for mobile and width/display for desktop.
+        transform: (window.innerWidth < 768 && !isSidebarOpen) ? 'translateX(-100%)' : 'none',
       }}
-      className="md:relative md:left-0"
+      className="md:relative" 
+      // We will handle desktop toggling via inline style override or a class
       id="sidebar"
       >
         <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border)', textAlign: 'center' }}>
@@ -123,7 +132,7 @@ const DashboardLayout = () => {
                 height: 'auto', 
                 margin: '0 auto', 
                 display: 'block',
-                filter: isDark ? 'invert(1) brightness(1.2)' : 'none'
+                filter: isDark ? 'none' : 'invert(1)'
               }}
              />
           </div>
@@ -133,17 +142,17 @@ const DashboardLayout = () => {
           {userRole === 'designer' && (
              <>
                <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase' }}>Workspace</div>
-               <SidebarItem to="/designer" icon={LayoutDashboard} label="Assigned Tasks" onClick={() => setMobileMenuOpen(false)} />
-               <SidebarItem to="/designer/sent" icon={CheckCircle} label="Sent for Review" onClick={() => setMobileMenuOpen(false)} />
-               <SidebarItem to="/designer/rejected" icon={XCircle} label="Rejected Tasks" onClick={() => setMobileMenuOpen(false)} />
+               <SidebarItem to="/designer" icon={LayoutDashboard} label="Assigned Tasks" onClick={() => window.innerWidth < 768 && setIsSidebarOpen(false)} />
+               <SidebarItem to="/designer/sent" icon={CheckCircle} label="Sent for Review" onClick={() => window.innerWidth < 768 && setIsSidebarOpen(false)} />
+               <SidebarItem to="/designer/rejected" icon={XCircle} label="Rejected Tasks" onClick={() => window.innerWidth < 768 && setIsSidebarOpen(false)} />
              </>
           )}
 
           {userRole === 'client' && (
              <>
                <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase' }}>Campaigns</div>
-               <SidebarItem to="/client" icon={Briefcase} label="All Campaigns" onClick={() => setMobileMenuOpen(false)} />
-               <SidebarItem to="/client/lead-magnets" icon={Magnet} label="Lead Magnets" onClick={() => setMobileMenuOpen(false)} />
+               <SidebarItem to="/client" icon={Briefcase} label="All Campaigns" onClick={() => window.innerWidth < 768 && setIsSidebarOpen(false)} />
+               <SidebarItem to="/client/lead-magnets" icon={Magnet} label="Lead Magnets" onClick={() => window.innerWidth < 768 && setIsSidebarOpen(false)} />
              </>
           )}
         </nav>
@@ -169,7 +178,7 @@ const DashboardLayout = () => {
                 {userRole === 'client' && (
                     <NavLink 
                         to="/client/settings" 
-                        onClick={() => setMobileMenuOpen(false)}
+                        onClick={() => window.innerWidth < 768 && setIsSidebarOpen(false)}
                         className={({ isActive }) => 
                         `btn btn-ghost w-full justify-center mb-2 ${isActive ? 'bg-indigo-50 text-indigo-600 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`
                         }
@@ -185,24 +194,78 @@ const DashboardLayout = () => {
               </>
            )}
 
-           <button 
-             onClick={handleLogout} 
-             className="btn btn-outline"
-             style={{ width: '100%', justifyContent: 'center', borderColor: 'var(--border)', backgroundColor: 'transparent', color: 'var(--text-main)' }}
+           <div 
+             onMouseEnter={() => setIsLogoutHovered(true)}
+             onMouseLeave={() => setIsLogoutHovered(false)}
+             onClick={handleLogout}
+             style={{ 
+               cursor: 'pointer',
+               marginTop: '1rem',
+               background: isLogoutHovered ? 'var(--status-rejected)' : 'var(--bg-card)', 
+               borderRadius: 'var(--radius)', 
+               border: isLogoutHovered ? '1px solid var(--status-rejected)' : '1px solid var(--border)',
+               boxShadow: isLogoutHovered ? 'var(--shadow-md)' : 'none',
+               transform: isLogoutHovered ? 'translateY(-2px)' : 'none',
+               transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+               height: '64px',
+               position: 'relative',
+               overflow: 'hidden',
+               userSelect: 'none'
+             }}
            >
-             <LogOut size={16} /> Logout
-           </button>
+             {/* Logout Content (Absolute) */}
+             <div style={{ 
+                position: 'absolute',
+                inset: 0,
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                gap: '8px', 
+                fontWeight: 600,
+                color: 'white',
+                opacity: isLogoutHovered ? 1 : 0,
+                transform: isLogoutHovered ? 'translateY(0)' : 'translateY(20px)',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+             }}>
+                <LogOut size={18} />
+                <span>Logout</span>
+             </div>
+
+             {/* User Info Content */}
+             <div style={{ 
+                height: '100%',
+                padding: '0.75rem',
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '12px', 
+                width: '100%',
+                opacity: isLogoutHovered ? 0 : 1,
+                transform: isLogoutHovered ? 'translateY(-20px)' : 'translateY(0)',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+             }}>
+                <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', flexShrink: 0 }}>
+                  {user?.name?.[0] || '?'}
+                </div>
+                <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                    <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.name}</div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'capitalize' }}>{userRole}</div>
+                </div>
+             </div>
+           </div>
         </div>
       </aside>
 
       {/* Desktop Sidebar shim for layout flow (since fixed sidebar is taken out of flow) */}
        <div className="sidebar-shim" style={{ width: 'var(--sidebar-width)', flexShrink: 0, display: 'none' }}></div>
        <style>{`
-          @media (min-width: 768px) {
-            #sidebar { left: 0 !important; position: sticky !important; }
-            /* Shim removed as sticky takes space */
-          }
-       `}</style>
+           @media (min-width: 768px) {
+             #sidebar { 
+               display: ${isSidebarOpen ? 'flex' : 'none'} !important; 
+               position: sticky !important; 
+               top: 0 !important;
+             }
+           }
+        `}</style>
 
       {/* Main Content */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
@@ -218,11 +281,11 @@ const DashboardLayout = () => {
         }}>
            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
              <button 
-               className="md:hidden" 
-               onClick={() => setMobileMenuOpen(true)}
-               style={{ padding: '4px' }}
+               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+               style={{ padding: '4px', display: 'flex', alignItems: 'center', color: 'var(--text-muted)' }}
+               title={isSidebarOpen ? "Hide Sidebar" : "Show Sidebar"}
              >
-               <Menu size={24} />
+               {isSidebarOpen ? <PanelLeft size={24} /> : <Menu size={24} />}
              </button>
              <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>
                {userRole === 'designer' ? 'Designer Workspace' : 'Client Dashboard'}
@@ -238,12 +301,7 @@ const DashboardLayout = () => {
                <Bell size={20} />
                <span style={{ position: 'absolute', top: -2, right: -2, width: 8, height: 8, background: 'red', borderRadius: '50%' }}></span>
              </button>
-             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
-                  {user?.name?.[0] || '?'}
-                </div>
-                <span className="hidden md:block" style={{ fontSize: '0.875rem', fontWeight: 500 }}>{user.name}</span>
-             </div>
+
            </div>
         </header>
 

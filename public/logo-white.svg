@@ -1,0 +1,6 @@
+<svg width="200" height="40" viewBox="0 0 200 40" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .title { font: bold 28px 'Segoe UI', Arial, sans-serif; fill: #ffffff; }
+  </style>
+  <text x="100" y="28" text-anchor="middle" class="title">ScalePods</text>
+</svg>

@@ -1,8 +1,8 @@
 :root {
   /* Brand Colors */
-  --primary: #4f46e5;
-  --primary-hover: #4338ca;
-  --primary-light: #eef2ff;
+  --primary: #9FD48A;
+  --primary-hover: #88BE74;
+  --primary-light: #F5FBF2;
 
   /* Status Colors */
   --status-new: #3b82f6; /* Blue */
@@ -41,17 +41,17 @@
   --text-error: #991B1B;
 
   /* Login & Info */
-  --bg-gradient-brand: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%);
-  --bg-info-subtle: #EFF6FF;
-  --text-info-header: #1E40AF;
-  --text-info-body: #3B82F6;
+  --bg-gradient-brand: linear-gradient(135deg, #F5FBF2 0%, #E6F4E0 100%);
+  --bg-info-subtle: #F0FDF4;
+  --text-info-header: #15803D;
+  --text-info-body: #16A34A;
 }
 
 body.dark {
-  /* Dark Blue Theme */
-  --primary: #818CF8;        /* Lighter Indigo for dark mode */
-  --primary-hover: #6366F1;
-  --primary-light: #1E1B4B;  /* Very dark indigo background for active items */
+  /* Dark Green Theme */
+  --primary: #9FD48A;        
+  --primary-hover: #88BE74;
+  --primary-light: #1A2814;  /* Very dark green background for active items */
   
   --bg-body: #0F172A;        /* Slate 900 */
   --bg-card: #1E293B;        /* Slate 800 */
@@ -81,8 +81,8 @@ body.dark {
   --text-error: #FECACA;      /* Light Red Text */
 
   /* Login & Info */
-  --bg-gradient-brand: linear-gradient(135deg, #0F172A 0%, #1E1B4B 100%);
-  --bg-info-subtle: #172554;
-  --text-info-header: #60A5FA;
-  --text-info-body: #93C5FD;
+  --bg-gradient-brand: linear-gradient(135deg, #0F172A 0%, #1A2814 100%);
+  --bg-info-subtle: #052e16;
+  --text-info-header: #9FD48A;
+  --text-info-body: #88BE74;
 }

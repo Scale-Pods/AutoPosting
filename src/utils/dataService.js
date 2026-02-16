@@ -333,6 +333,45 @@ export const dataService = {
     return dataService.updateStatus(id, "Design Uploaded", { designUrl: url });
   },
 
+  uploadDesignFile: async (task, files) => {
+    try {
+        const formData = new FormData();
+        // Handle single file or array of files
+        const fileList = Array.isArray(files) ? files : [files];
+        
+        fileList.forEach(file => {
+            formData.append('file', file);
+        });
+
+        // Append all task details as requested
+        Object.keys(task).forEach(key => {
+            formData.append(key, task[key] || '');
+        });
+        formData.append('uploadedAt', new Date().toISOString());
+        formData.append('fileCount', fileList.length);
+
+        console.log(`Uploading ${fileList.length} file(s) to n8n webhook...`);
+
+        const response = await fetch('https://n8n.srv1010832.hstgr.cloud/webhook-test/16e07d6d-c58f-4ce1-ad00-f504ca9c40b2', {
+            method: 'POST',
+            body: formData,
+        });
+
+        if (response.ok) {
+            console.log('File upload webhook successful');
+            // We assume the webhook handles storage and we just update status here.
+            // Since we don't have a URL yet (unless webhook returns it), we'll mark as uploaded.
+            const fileNames = fileList.map(f => f.name).join(', ');
+            return dataService.updateStatus(task.id, "Design Uploaded", { designUrl: `${fileList.length} Files: ${fileNames} (Uploaded)` });
+        } else {
+            console.error('File upload failed with status:', response.status);
+        }
+    } catch (error) {
+        console.error('File upload exception:', error);
+    }
+    return null;
+  },
+
   rejectDesign: async (id, feedback) => {
     try {
       await fetch(import.meta.env.VITE_WEBHOOK_MAIN, {

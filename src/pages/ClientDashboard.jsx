@@ -23,6 +23,7 @@ const ClientDashboard = () => {
   
   // New Campaign Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false); // [NEW] Success Modal
   const [designers, setDesigners] = useState([]); // [NEW]
   const [newCampaign, setNewCampaign] = useState({
     clientName: 'Client', // Default
@@ -99,8 +100,14 @@ const ClientDashboard = () => {
     if (createdTask) {
         setTasks(prev => prev.map(t => t.id === tempId ? createdTask : t));
     }
-    // Background sync
-    fetchTasks(false);
+
+    // Show Success Modal
+    setShowSuccessModal(true);
+  };
+
+  const handleSuccessClose = () => {
+      setShowSuccessModal(false);
+      fetchTasks(true); // Refetch from webhook/backend
   };
 
   const handleDelete = async (id, campaignName) => {
@@ -218,16 +225,18 @@ const ClientDashboard = () => {
                         
                         {(() => {
                             // Relaxed regex to capture ID between /d/ and / (or end), or id=...
-                            const driveId = task.designUrl && typeof task.designUrl === 'string' && task.designUrl.includes('drive.google.com') 
-                                ? (task.designUrl.match(/\/d\/([^/]+)/)?.[1] || task.designUrl.match(/id=([^&]+)/)?.[1])
-                                : null;
+                            const folderMatch = task.designUrl && typeof task.designUrl === 'string' ? task.designUrl.match(/\/folders\/([^/?]+)/) : null;
+                            const fileMatch = task.designUrl && typeof task.designUrl === 'string' ? (task.designUrl.match(/\/d\/([^/]+)/) || task.designUrl.match(/id=([^&]+)/)) : null;
+
+                            const isFolder = !!folderMatch;
+                            const driveId = isFolder ? folderMatch[1] : (fileMatch ? fileMatch[1] : null);
                                 
                             // Determine if this is a Vertical format (Reel/Story) or standard Video
                             const isVertical = task.postType === 'Reel' || task.postType === 'Story (Reel)';
                             const isVideoType = isVertical || (task.postType && task.postType.includes && task.postType.includes('Video'));
                             
                             // Determine Aspect Ratio
-                            const containerRatio = isVertical ? '9/16' : (isVideoType ? '16/9' : undefined);
+                            const containerRatio = isVertical ? '9/16' : (isVideoType ? '16/9' : (isFolder ? '1/1' : undefined));
 
                             return (
                                 <div style={{ display: 'flex', justifyContent: 'center', width: '100%', marginBottom: 'auto' }}>
@@ -247,7 +256,27 @@ const ClientDashboard = () => {
                                     }} className="group">
                                         {task.designUrl ? (
                                             <>
-                                                {driveId ? (
+                                                {isFolder && driveId ? (
+                                                   <div style={{ position: 'relative', width: '100%', height: '100%', minHeight: '300px' }}>
+                                                       {/* Folder Embed */}
+                                                       <iframe 
+                                                            title="Drive Folder"
+                                                            src={`https://drive.google.com/embeddedfolderview?id=${driveId}#grid`}
+                                                            style={{ width: '100%', height: '100%', border: 'none' }}
+                                                       ></iframe>
+                                                       <div style={{ 
+                                                            position: 'absolute', bottom: '6px', right: '6px', zIndex: 10
+                                                        }}>
+                                                            <button 
+                                                                onClick={(e) => { e.stopPropagation(); window.open(task.designUrl, '_blank'); }}
+                                                                className="btn btn-sm btn-light"
+                                                                style={{ background: 'rgba(255,255,255,0.9)', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', fontSize: '0.65rem', padding: '2px 6px' }}
+                                                            >
+                                                                Open Folder ↗
+                                                            </button>
+                                                        </div>
+                                                   </div>
+                                                ) : (driveId ? (
                                                     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
                                                         {isVideoType ? (
                                                             activePreviewId === task.id ? (
@@ -307,7 +336,7 @@ const ClientDashboard = () => {
                                                         style={{ width: '100%', height: 'auto', maxHeight: '300px', objectFit: 'contain', display: 'block' }} 
                                                         onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/600x400/png?text=Broken+Link'; }}
                                                     />
-                                                )}
+                                                ))}
                                             </>
                                         ) : (
                                             <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', padding: '1rem' }}>No design uploaded</div>
@@ -653,6 +682,31 @@ const ClientDashboard = () => {
           </div>
         </div>
       )}
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 110 }}>
+            <div className="card" style={{ width: '100%', maxWidth: '400px', textAlign: 'center', padding: '2rem' }}>
+                <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--status-approved)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+                    <Check size={24} />
+                </div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.5rem' }}>Campaign Created!</h3>
+                <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
+                    Your campaign has been successfully created and sent to the designer.
+                </p>
+                <button 
+                    onClick={handleSuccessClose} 
+                    className="btn btn-primary" 
+                    style={{ width: '100%', justifyContent: 'center' }}
+                >
+                    OK
+                </button>
+            </div>
+        </div>
+      )}
+
+      {/* Rejection Modal Modal - renamed for clarity but keeping structure same as previous `reviewingId` block if it was outside */ }
+      {/* Rejection Modal is below */ }
 
       {/* Rejection Modal */}
       {reviewingId && (

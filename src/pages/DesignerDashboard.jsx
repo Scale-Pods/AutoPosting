@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { dataService } from '../utils/dataService';
 import { UploadCloud, Clock, AlertCircle, FileText } from 'lucide-react';
 
@@ -12,7 +12,10 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
   const [loading, setLoading] = useState(true);
   const [uploadingTask, setUploadingTask] = useState(null); // Task object being uploaded to
   const [designUrl, setDesignUrl] = useState('');
+  const [filesToUpload, setFilesToUpload] = useState([]); // [NEW] Files state (Array)
+  const fileInputRef = useRef(null); // Ref for hidden file input
   const [dragActive, setDragActive] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false); // [NEW] Success Modal
 
 
   useEffect(() => {
@@ -34,6 +37,8 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
   const handleCloseModal = () => {
     setUploadingTask(null);
     setDesignUrl('');
+    setFilesToUpload([]);
+    if (fileInputRef.current) fileInputRef.current.value = ''; // Reset input
   };
 
   const handleDrag = (e) => {
@@ -51,22 +56,55 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
+
+    // Helper to extract Drive Link
+    const findDriveLink = (text) => {
+        if (!text) return null;
+        const match = text.match(/https?:\/\/(drive\.google\.com|docs\.google\.com)[^\s"']+/);
+        return match ? match[0] : null;
+    };
     
-    // Check for file drops first
+    // 1. Try to get URL from Text/URI
+    const droppedText = e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('text/uri-list');
+    let foundUrl = findDriveLink(droppedText);
+
+    // 2. Try to get URL from HTML (common when dragging links from web)
+    if (!foundUrl) {
+        const droppedHtml = e.dataTransfer.getData('text/html');
+        if (droppedHtml) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(droppedHtml, 'text/html');
+            const link = doc.querySelector('a[href*="drive.google.com"], a[href*="docs.google.com"]');
+            if (link) {
+                foundUrl = link.href;
+            }
+        }
+    }
+
+    if (foundUrl) {
+        setDesignUrl(foundUrl);
+        setFilesToUpload([]); // Clear files if link found
+        return;
+    }
+    
+    // 3. Check for file drops (Local files)
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-        alert("Direct file uploads are not supported. Please upload your design to Google Drive and drop the shareable link here.");
+        const droppedFiles = Array.from(e.dataTransfer.files);
+        // Append new files to existing ones
+        setFilesToUpload(prev => [...prev, ...droppedFiles]);
+        setDesignUrl(''); // Clear link if files found
         return;
     }
 
-    // Try to get data as URL text
-    const droppedText = e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('text/uri-list');
-    
-    if (droppedText) {
-        if (droppedText.includes('drive.google.com')) {
-            setDesignUrl(droppedText);
-        } else {
-            alert('Please drop a valid Google Drive link.');
-        }
+    // 4. Nothing found
+    alert('Please drop a valid Google Drive link or files.');
+  };
+
+  const handleFileSelect = (e) => {
+    if (e.target.files && e.target.files.length > 0) {
+        const selectedFiles = Array.from(e.target.files);
+        setFilesToUpload(prev => [...prev, ...selectedFiles]);
+        setDesignUrl('');
     }
   };
 
@@ -74,9 +112,18 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
 
   const handleSubmitDesign = async (e) => {
     e.preventDefault();
-    if (!designUrl) return;
+    if (!designUrl && filesToUpload.length === 0) return;
 
-    if (!designUrl.includes('drive.google.com')) {
+    // Handle File Upload
+    if (filesToUpload.length > 0) {
+         await dataService.uploadDesignFile(uploadingTask, filesToUpload);
+         handleCloseModal();
+         setShowSuccessModal(true);
+         return;
+    }
+
+    // Handle Link Upload
+    if (!designUrl.includes('drive.google.com') && !designUrl.includes('docs.google.com')) {
         alert('Please provide a valid Google Drive link.');
         return;
     }
@@ -91,7 +138,14 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
 
     // API Call
     await dataService.uploadDesign(tempId, tempUrl);
-    fetchTasks(false); // Sync in background
+    
+    // Show Success Modal
+    setShowSuccessModal(true);
+  };
+
+  const handleSuccessClose = () => {
+    setShowSuccessModal(false);
+    fetchTasks(true);
   };
 
   // Filter tasks based on view prop
@@ -144,6 +198,11 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
                 <td style={{ padding: '1rem', fontWeight: 500 }}>{task.clientName}</td>
                 <td style={{ padding: '1rem', maxWidth: '300px' }}>
                   <div style={{ fontWeight: 500, marginBottom: '0.25rem' }}>{task.campaignName || 'Campaign'}</div>
+                  <div style={{ marginBottom: '4px' }}>
+                    <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', background: 'var(--bg-subtle)', color: 'var(--text-main)', border: '1px solid var(--border)', fontWeight: 600 }}>
+                        {task.postType || 'Static'}
+                    </span>
+                  </div>
                   <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>{task.brief}</div>
                   {task.status === 'Rejected' && task.feedback && (
                     <div style={{ marginTop: '0.5rem', padding: '0.5rem', background: 'var(--bg-error-subtle)', borderRadius: '4px', fontSize: '0.8rem', color: 'var(--text-error)', display: 'flex', gap: '6px', alignItems: 'start' }}>
@@ -197,6 +256,28 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
                 Provide the Google Drive link for <strong>{uploadingTask.campaignName}</strong>
               </p>
 
+              {/* Order Instruction for Carousel/Story */}
+              {['Carousel', 'Story (Image)'].includes(uploadingTask.postType) && (
+                  <div style={{ 
+                      marginBottom: '1.5rem', 
+                      padding: '0.75rem', 
+                      background: 'rgba(255, 152, 0, 0.1)', 
+                      border: '1px solid rgba(255, 152, 0, 0.3)',
+                      borderRadius: '6px', 
+                      fontSize: '0.85rem', 
+                      color: '#ff9800',
+                      display: 'flex',
+                      gap: '8px',
+                      alignItems: 'start',
+                      textAlign: 'left'
+                  }}>
+                      <AlertCircle size={16} style={{ marginTop: '2px', flexShrink: 0 }} />
+                      <div>
+                          <strong>Important:</strong> Please ensure files are uploaded in the correct sequential order.
+                      </div>
+                  </div>
+              )}
+
               <form onSubmit={handleSubmitDesign}>
                   {/* Drag Drop Zone for Links */}
                   <div 
@@ -207,15 +288,51 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
                         textAlign: 'center',
                         backgroundColor: dragActive ? 'var(--primary-light)' : 'transparent',
                         marginBottom: '1.5rem',
-                        transition: 'all 0.2s ease'
+                        transition: 'all 0.2s ease',
+                        cursor: 'pointer' // Indicate clickable
                     }}
                     onDragEnter={handleDrag}
                     onDragLeave={handleDrag}
                     onDragOver={handleDrag}
                     onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()} // Trigger file browser
                   >
+                      <input 
+                        type="file" 
+                        multiple 
+                        ref={fileInputRef} 
+                        onChange={handleFileSelect} 
+                        style={{ display: 'none' }} 
+                      />
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', color: 'var(--text-muted)' }}>
-                         {designUrl ? (
+                         {filesToUpload.length > 0 ? (
+                            <>
+                                <FileText size={48} color="var(--primary)" />
+                                <div>
+                                    <div style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '0.9rem' }}>
+                                        {filesToUpload.length} File{filesToUpload.length > 1 ? 's' : ''} Selected
+                                    </div>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.5rem', maxHeight: '60px', overflowY: 'auto' }}>
+                                        {filesToUpload.map(f => f.name).join(', ')}
+                                    </div>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--success)' }}>
+                                        Total Size: {(filesToUpload.reduce((acc, f) => acc + f.size, 0) / 1024 / 1024).toFixed(2)} MB
+                                    </div>
+                                    <button 
+                                        type="button" 
+                                        onClick={(e) => { 
+                                            e.stopPropagation(); // Stop click from triggering upload dialog
+                                            setFilesToUpload([]); 
+                                            if (fileInputRef.current) fileInputRef.current.value = '';
+                                        }}
+                                        className="btn btn-xs btn-outline"
+                                        style={{ marginTop: '0.5rem' }}
+                                    >
+                                        Clear Files
+                                    </button>
+                                </div>
+                            </>
+                         ) : designUrl ? (
                             <>
                                 <FileText size={48} color="var(--primary)" />
                                 <div>
@@ -229,15 +346,16 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
                             <>
                                 <UploadCloud size={48} />
                                 <div>
-                                    <span style={{ color: 'var(--primary)', fontWeight: 600 }}>Drag & Drop</span> a Google Drive Link here
+                                    <span style={{ color: 'var(--primary)', fontWeight: 600 }}>Drag & Drop</span> Files or Drive Link here
                                 </div>
-                                <div style={{ fontSize: '0.75rem' }}>Works with Drive Folders & Media Files</div>
+                                <div style={{ fontSize: '0.75rem' }}>Supports Direct File Uploads (Multiple) & Drive Links</div>
                             </>
                          )}
                       </div>
                   </div>
 
-                  {/* Link Input */}
+                  {/* Link Input - Only show if no files selected */}
+                  {filesToUpload.length === 0 && (
                   <div style={{ marginBottom: '1.5rem', position: 'relative' }}>
                       <div style={{ 
                           display: 'flex', alignItems: 'center', gap: '8px', 
@@ -256,13 +374,38 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
                         style={{ width: '100%' }}
                       />
                   </div>
+                  )}
 
                   <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                       <button type="button" className="btn btn-ghost" onClick={handleCloseModal}>Cancel</button>
-                      <button type="submit" className="btn btn-primary" disabled={!designUrl}>Submit Design</button>
+                      <button type="submit" className="btn btn-primary" disabled={!designUrl && filesToUpload.length === 0}>
+                          {filesToUpload.length > 0 ? `Upload ${filesToUpload.length} File${filesToUpload.length > 1 ? 's' : ''}` : 'Submit Design'}
+                      </button>
                   </div>
               </form>
            </div>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 110 }}>
+            <div className="card" style={{ width: '100%', maxWidth: '400px', textAlign: 'center', padding: '2rem' }}>
+                <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--status-uploaded)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+                    <UploadCloud size={24} />
+                </div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.5rem' }}>Design Uploaded!</h3>
+                <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
+                    Your design has been successfully submitted for review.
+                </p>
+                <button 
+                    onClick={handleSuccessClose} 
+                    className="btn btn-primary" 
+                    style={{ width: '100%', justifyContent: 'center' }}
+                >
+                    OK
+                </button>
+            </div>
         </div>
       )}
     </div>
