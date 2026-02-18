@@ -192,9 +192,15 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
     
     const hasDesign = designUrl || filesToUpload.length > 0;
     const hasThumbnail = thumbnailUrl || thumbnailFile;
+    const isReel = uploadingTask.postType === 'Reel';
 
-    if (!hasDesign || !hasThumbnail) {
-        alert('Both Design (Link/Files) and Thumbnail (Link/File) are mandatory.');
+    if (!hasDesign) {
+        alert('Design (Link or Files) is mandatory.');
+        return;
+    }
+
+    if (isReel && !hasThumbnail) {
+        alert('A Thumbnail (Link or File) is mandatory for Reels.');
         return;
     }
 
@@ -577,7 +583,8 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
                   </div>
                   )}
 
-                  {/* Thumbnail Section */}
+                  {/* Thumbnail Section - Only for Reels */}
+                  {uploadingTask.postType === 'Reel' && (
                   <div style={{ 
                       marginTop: '2rem', 
                       padding: '1.5rem', 
@@ -588,7 +595,7 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
                   }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
                           <FileText size={18} color="var(--primary)" />
-                          <h3 style={{ fontSize: '0.9rem', fontWeight: 600 }}>Thumbnail / Cover Image (Mandatory)</h3>
+                          <h3 style={{ fontSize: '0.9rem', fontWeight: 600 }}>Thumbnail / Cover Image (Mandatory for Reels)</h3>
                       </div>
 
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -656,6 +663,7 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
                           />
                       </div>
                   </div>
+                  )}
 
                   <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                       <button type="button" className="btn btn-ghost" onClick={handleCloseModal} disabled={isUploading}>Cancel</button>
