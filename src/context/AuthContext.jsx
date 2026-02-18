@@ -33,7 +33,7 @@ export const AuthProvider = ({ children }) => {
   const updateUserPassword = async (newPassword) => {
     if (user) {
         try {
-            const success = await dataService.updatePassword(user.id, newPassword);
+            const success = await dataService.updatePassword(user.id, newPassword, user.email, user.role);
             if (success) {
                 const updatedUser = { ...user, isFirstLogin: false };
                 setUser(updatedUser);

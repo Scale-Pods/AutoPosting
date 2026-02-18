@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { dataService } from '../utils/dataService';
-import { Check, X, Plus, Trash2, Clock, Calendar } from 'lucide-react';
+import { Check, X, Plus, Trash2, Clock, Calendar, Maximize2, Minimize2, ExternalLink, ZoomIn, ZoomOut } from 'lucide-react';
 import LoadingScreen from '../components/LoadingScreen';
 
 const StatusBadge = ({ status }) => {
@@ -16,6 +16,14 @@ const ClientDashboard = () => {
   const [activePreviewId, setActivePreviewId] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null); // [NEW] Task Details Modal
   const [generatingCaption, setGeneratingCaption] = useState(false); // [NEW]
+  const [isPreviewExpanded, setIsPreviewExpanded] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(1);
+
+  useEffect(() => {
+    if (!selectedTask) {
+      setZoomLevel(1);
+    }
+  }, [selectedTask]);
 
   const togglePreview = (id) => {
     setActivePreviewId(prev => prev === id ? null : id);
@@ -153,7 +161,7 @@ const ClientDashboard = () => {
           { title: 'Yet to be Reviewed', list: tasks.filter(t => t.status === 'Design Uploaded'), color: 'var(--primary)', empty: 'No designs waiting for review.' },
           { title: 'Approved', list: tasks.filter(t => t.status === 'Approved'), color: 'var(--status-approved)', empty: 'No approved campaigns yet.' },
           { title: 'Rejected', list: tasks.filter(t => t.status === 'Rejected'), color: 'var(--status-rejected)', empty: 'No rejected campaigns.' },
-          { title: 'Waiting for Design', list: tasks.filter(t => t.status === 'New'), color: 'var(--text-muted)', empty: 'No new briefs pending.' }
+          { title: 'Pending with Design Team', list: tasks.filter(t => t.status === 'New'), color: 'var(--text-muted)', empty: 'No new briefs pending.' }
       ].map((section, idx) => (
         section.list.length >= 0 && (
         <div key={idx} style={{ marginBottom: '3rem' }}>
@@ -414,59 +422,77 @@ const ClientDashboard = () => {
       {selectedTask && (
         <div style={{ 
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
-          background: 'rgba(0,0,0,0.5)', zIndex: 60, 
-          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' 
+          background: 'rgba(0,0,0,0.7)', zIndex: 60, 
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
+          backdropFilter: 'blur(4px)'
         }}>
           <div style={{ 
-            background: 'var(--bg-card)', padding: '2rem', borderRadius: '12px', 
-            width: '100%', maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto',
-            border: '1px solid var(--border)', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' 
+            background: 'var(--bg-card)', padding: isPreviewExpanded ? '1.5rem' : '2.5rem', borderRadius: '24px', 
+            width: '100%', maxWidth: isPreviewExpanded ? '1200px' : '1000px', maxHeight: '95vh', overflowY: 'auto',
+            border: '1px solid var(--border)', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '1.5rem' }}>
               <div>
-                  <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '4px' }}>{selectedTask.campaignName}</h2>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <h2 style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: '6px', letterSpacing: '-0.025em' }}>{selectedTask.campaignName}</h2>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                     <StatusBadge status={selectedTask.status} />
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>• {selectedTask.postType || 'Static'}</span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 500 }}>• {selectedTask.postType || 'Static'}</span>
                   </div>
               </div>
-              <button 
-                  onClick={() => setSelectedTask(null)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text)' }}
-              >
-                  <X size={24} />
-              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button 
+                    onClick={() => setIsPreviewExpanded(!isPreviewExpanded)}
+                    className="btn btn-ghost"
+                    style={{ padding: '8px', color: 'var(--primary)' }}
+                    title={isPreviewExpanded ? "Show Details" : "Focus Preview"}
+                >
+                    {isPreviewExpanded ? <Minimize2 size={22} /> : <Maximize2 size={22} />}
+                </button>
+                <button 
+                    onClick={() => { setSelectedTask(null); setIsPreviewExpanded(false); }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px' }}
+                >
+                    <X size={28} />
+                </button>
+              </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+            <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: isPreviewExpanded ? '1fr' : 'max(360px, 35%) 1fr', 
+                gap: '2.5rem',
+                animation: 'fadeIn 0.3s ease-out'
+            }}>
                {/* Left Column: Details */}
+               {!isPreviewExpanded && (
                <div>
-                  <div style={{ marginBottom: '1.5rem' }}>
-                      <label style={{ display: 'block', textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '4px' }}>Brief</label>
-                      <div style={{ background: 'var(--bg-main)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border)', whiteSpace: 'pre-line' }}>
+                  <div style={{ marginBottom: '2rem' }}>
+                      <label style={{ display: 'block', textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '8px', letterSpacing: '0.05em' }}>Campaign Brief</label>
+                      <div style={{ background: 'var(--bg-body)', padding: '1.25rem', borderRadius: '12px', border: '1px solid var(--border)', whiteSpace: 'pre-line', fontSize: '0.95rem', lineHeight: 1.6, color: 'var(--text-main)' }}>
                         {selectedTask.brief}
                       </div>
                   </div>
 
-                  <div style={{ marginBottom: '1.5rem' }}>
-                      <label style={{ display: 'block', textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '4px' }}>Details</label>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', fontSize: '0.9rem' }}>
+                  <div style={{ marginBottom: '2rem' }}>
+                      <label style={{ display: 'block', textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '8px', letterSpacing: '0.05em' }}>Assignment Details</label>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', padding: '1.25rem', background: 'var(--bg-subtle)', borderRadius: '12px', border: '1px solid var(--border)' }}>
                          <div>
-                            <span style={{ color: 'var(--text-muted)' }}>Designer:</span> <br/>
-                            <span style={{ fontWeight: 600 }}>{selectedTask.designerName || 'Pending'}</span>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>DESIGNER</span> <br/>
+                            <span style={{ fontWeight: 700, fontSize: '1rem' }}>{selectedTask.designerName || 'Pending'}</span>
                          </div>
                          <div>
-                            <span style={{ color: 'var(--text-muted)' }}>Deadline:</span> <br/>
-                            <span style={{ fontWeight: 600 }}>{selectedTask.deadline || 'N/A'}</span>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>DEADLINE</span> <br/>
+                            <span style={{ fontWeight: 700, fontSize: '1rem' }}>{selectedTask.deadline || 'N/A'}</span>
                          </div>
                       </div>
                   </div>
 
                   <div style={{ marginBottom: '1.5rem' }}>
                       {/* Caption/Comment Section */}
-                      <div style={{ marginBottom: '1rem' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                              <label style={{ display: 'block', textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>Caption / Comment</label>
+                      <div style={{ marginBottom: '1.5rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                              <label style={{ display: 'block', textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>Social Caption</label>
                               <button 
                                 onClick={async () => {
                                     setGeneratingCaption(true);
@@ -481,9 +507,9 @@ const ClientDashboard = () => {
                                 }}
                                 className="btn btn-ghost btn-sm"
                                 disabled={generatingCaption}
-                                style={{ fontSize: '0.75rem', color: 'var(--primary)', padding: '2px 8px', height: 'auto' }}
+                                style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 700, padding: '4px 10px', background: 'var(--primary-light)', borderRadius: '8px' }}
                               >
-                                {generatingCaption ? '⏳ Generating...' : '✨ Auto-Generate Caption'}
+                                {generatingCaption ? '⏳ Generating...' : '✨ Auto-Generate'}
                               </button>
                           </div>
                           <textarea 
@@ -493,21 +519,21 @@ const ClientDashboard = () => {
                                 width: '100%', 
                                 background: 'var(--bg-main)', 
                                 padding: '1rem', 
-                                borderRadius: '8px', 
-                                border: '1px solid var(--border)', 
-                                minHeight: '80px',
+                                borderRadius: '12px', 
+                                border: '1.5px solid var(--border)', 
+                                minHeight: '100px',
                                 fontFamily: 'inherit',
-                                color: 'var(--text-main)', // Ensure visibility based on theme
+                                color: 'var(--text-main)',
+                                fontSize: '0.9rem',
+                                resize: 'vertical'
                             }}
                             placeholder="Write your caption here..."
                           />
                       </div>
 
                       {/* Hashtags Section */}
-                      <div style={{ marginBottom: '1rem' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                              <label style={{ display: 'block', textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>Hashtags</label>
-                          </div>
+                      <div style={{ marginBottom: '1.5rem' }}>
+                          <label style={{ display: 'block', textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '8px', letterSpacing: '0.05em' }}>Hashtags</label>
                           <textarea 
                             value={selectedTask.hashtags || ''} 
                             onChange={(e) => setSelectedTask({...selectedTask, hashtags: e.target.value})}
@@ -515,19 +541,21 @@ const ClientDashboard = () => {
                                 width: '100%', 
                                 background: 'var(--bg-main)', 
                                 padding: '1rem', 
-                                borderRadius: '8px', 
-                                border: '1px solid var(--border)', 
+                                borderRadius: '12px', 
+                                border: '1.5px solid var(--border)', 
                                 minHeight: '60px',
-                                fontFamily: 'inherit',
-                                color: 'var(--text-main)', // Ensure visibility
+                                fontSize: '0.85rem',
+                                color: 'var(--primary)',
+                                fontWeight: 500
                             }}
-                            placeholder="#hashtags"
+                            placeholder="#tag1 #tag2..."
                           />
                       </div>
-                      
-                      <div style={{ textAlign: 'right' }}>
+
+                      <div style={{ textAlign: 'center' }}>
                           <button 
-                            className="btn btn-primary btn-sm"
+                            className="btn btn-primary"
+                            style={{ width: '100%', padding: '0.75rem', borderRadius: '10px', fontWeight: 700 }}
                             onClick={async () => {
                                 const success = await dataService.updateCaption(selectedTask.id, selectedTask.caption, selectedTask.hashtags);
                                 if (success) {
@@ -537,28 +565,50 @@ const ClientDashboard = () => {
                                 }
                             }}
                           >
-                              Save Changes
+                               Save All Changes
                           </button>
                       </div>
                   </div>
                </div>
+               )}
 
                {/* Right Column: Preview */}
-               <div>
-                   <label style={{ display: 'block', textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '12px' }}>Campaign Contents & Preview</label>
+               <div style={{ display: 'flex', flexDirection: 'column' }}>
+                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                            <label style={{ textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>Asset Preview</label>
+                            {selectedTask.designUrl && !selectedTask.designUrl.includes('drive.google.com') && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--bg-subtle)', padding: '2px 8px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                                    <button onClick={() => setZoomLevel(prev => Math.max(0.5, prev - 0.25))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-main)', padding: '4px' }} title="Zoom Out"><ZoomOut size={16} /></button>
+                                    <span style={{ fontSize: '0.75rem', fontWeight: 700, minWidth: '40px', textAlign: 'center' }}>{Math.round(zoomLevel * 100)}%</span>
+                                    <button onClick={() => setZoomLevel(prev => Math.min(3, prev + 0.25))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-main)', padding: '4px' }} title="Zoom In"><ZoomIn size={16} /></button>
+                                </div>
+                            )}
+                        </div>
+                        {selectedTask.designUrl && (
+                            <a href={selectedTask.designUrl} target="_blank" rel="noopener noreferrer" 
+                               style={{ color: 'var(--primary)', fontSize: '0.75rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}>
+                                Open Full Size <ExternalLink size={14} />
+                            </a>
+                        )}
+                   </div>
+                   
                    {selectedTask.designUrl ? (
                         <div style={{ 
-                            borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border)',
-                            background: '#000', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px' 
+                            borderRadius: '16px', overflow: 'hidden', border: '2px solid var(--border)',
+                            background: '#000', display: 'flex', justifyContent: 'center', alignItems: 'center', 
+                            minHeight: isPreviewExpanded ? '700px' : '500px',
+                            boxShadow: 'inset 0 0 20px rgba(0,0,0,0.5)',
+                            position: 'relative'
                         }}>
                              {(() => {
-                                const url = selectedTask.designUrl;
-                                                                 // Handle Direct Multi-File Upload string: "X Files: name1, name2 (Uploaded)"
+                                 const url = selectedTask.designUrl;
+                                 
                                  if (url && typeof url === 'string' && url.includes(' (Uploaded)')) {
                                      const filePart = url.split(': ')[1]?.replace(' (Uploaded)', '');
                                      const files = filePart ? filePart.split(', ') : [];
                                      return (
-                                         <div style={{ padding: '2.5rem 1.5rem', width: '100%', background: 'var(--bg-card)', color: 'var(--text-main)' }}>
+                                         <div style={{ padding: '2.5rem 1.5rem', width: '100%', background: 'var(--bg-card)', color: 'var(--text-main)', height: '100%', overflowY: 'auto' }}>
                                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '2rem', borderBottom: '2px solid var(--primary-light)', paddingBottom: '1rem' }}>
                                                  <div style={{ background: 'var(--bg-success-subtle)', color: 'var(--text-success)', padding: '8px', borderRadius: '12px' }}>
                                                     <Check size={28} />
@@ -568,11 +618,11 @@ const ClientDashboard = () => {
                                                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>Review assets for this campaign.</p>
                                                  </div>
                                              </div>
-                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '300px', overflowY: 'auto' }}>
+                                             <div style={{ display: 'grid', gridTemplateColumns: isPreviewExpanded ? 'repeat(auto-fill, minmax(200px, 1fr))' : '1fr', gap: '12px' }}>
                                                  {files.map((f, i) => (
-                                                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: 'var(--bg-body)', borderRadius: '10px', border: '1px solid var(--border)' }}>
-                                                         <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 800 }}>{i+1}</div>
-                                                         <div style={{ flex: 1, fontWeight: 500, fontSize: '0.9rem' }}>{f}</div>
+                                                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 18px', background: 'var(--bg-body)', borderRadius: '12px', border: '1.3px solid var(--border)' }}>
+                                                         <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', fontWeight: 800, flexShrink: 0 }}>{i+1}</div>
+                                                         <div style={{ flex: 1, fontWeight: 600, fontSize: '0.95rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f}</div>
                                                      </div>
                                                  ))}
                                              </div>
@@ -580,109 +630,128 @@ const ClientDashboard = () => {
                                      );
                                  }
 
-                                 if (!url || typeof url !== 'string' || !url.includes('drive.google.com')) return null;
-
-                                const folderMatch = url.match(/\/folders\/([^/?]+)/);
-                                const fileMatch = url.match(/\/d\/([^/]+)/) || url.match(/id=([^&]+)/);
-                                
-                                if (folderMatch) {
-                                    return (
-                                        <div style={{ 
-                                            width: '100%', 
-                                            background: '#f8fafc', // Light background for the Google Drive list for better visibility
-                                            borderRadius: '12px', 
-                                            overflow: 'hidden', 
-                                            border: '1px solid var(--border)',
-                                            boxShadow: '0 10px 30px -10px rgba(0,0,0,0.5)'
-                                        }}>
-                                            <div style={{ 
-                                                padding: '10px 16px', 
-                                                background: 'var(--bg-card)', 
-                                                borderBottom: '1px solid var(--border)',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '8px'
-                                            }}>
-                                                <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#ff5f56' }}></div>
-                                                <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#ffbd2e' }}></div>
-                                                <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#27c93f' }}></div>
-                                                <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', marginLeft: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                                    Carousel Assets
-                                                </span>
-                                            </div>
-                                            <iframe 
-                                                title="Folder Preview"
-                                                src={`https://drive.google.com/embeddedfolderview?id=${folderMatch[1]}#grid`}
-                                                style={{ width: '100%', height: '550px', border: 'none', display: 'block' }}
-                                            ></iframe>
+                                 if (!url || typeof url !== 'string' || !url.includes('drive.google.com')) {
+                                     const isVideoType = (selectedTask.postType && selectedTask.postType.includes('Video')) || selectedTask.postType === 'Reel' || (url && url.match(/\.(mp4|mov)$/i));
+                                     return (
+                                        <div style={{ width: '100%', height: '100%', overflow: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            {isVideoType ? (
+                                                <video src={url} controls style={{ maxWidth: '100%', maxHeight: '100%', transform: `scale(${zoomLevel})`, transition: 'transform 0.2s ease-out' }} />
+                                            ) : (
+                                                <img src={url} alt="Full Preview" style={{ maxWidth: zoomLevel > 1 ? 'none' : '100%', maxHeight: zoomLevel > 1 ? 'none' : (isPreviewExpanded ? '750px' : '550px'), transform: `scale(${zoomLevel})`, transition: 'transform 0.2s ease-out', objectFit: 'contain' }} />
+                                            )}
                                         </div>
-                                    );
-                                }
+                                     );
+                                 }
 
-                                if (fileMatch) {
-                                    const driveId = fileMatch[1];
-                                    const isVideoType = (selectedTask.postType && selectedTask.postType.includes('Video')) || selectedTask.postType === 'Reel' || selectedTask.postType === 'Story (Reel)';
-                                    
-                                    return (
-                                        <iframe 
-                                            title="File Preview"
-                                            src={`https://drive.google.com/file/d/${driveId}/preview`}
-                                            style={{ width: '100%', height: '400px', border: 'none' }}
-                                            allow="autoplay; fullscreen"
-                                        ></iframe>
-                                    );
-                                }
+                                 const folderMatch = url.match(/\/folders\/([^/?]+)/);
+                                 const fileMatch = url.match(/\/d\/([^/]+)/) || url.match(/id=([^&]+)/);
+                                 
+                                 if (folderMatch) {
+                                     return (
+                                         <div style={{ 
+                                             width: '100%', 
+                                             height: '100%',
+                                             background: '#f8fafc',
+                                             display: 'flex',
+                                             flexDirection: 'column'
+                                         }}>
+                                             <div style={{ 
+                                                 padding: '12px 20px', 
+                                                 background: 'var(--bg-card)', 
+                                                 borderBottom: '1px solid var(--border)',
+                                                 display: 'flex',
+                                                 alignItems: 'center',
+                                                 gap: '10px'
+                                             }}>
+                                                 <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#ff5f56' }}></div>
+                                                 <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#ffbd2e' }}></div>
+                                                 <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#27c93f' }}></div>
+                                                 <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)', marginLeft: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                                     Carousel Assets Explorer
+                                                 </span>
+                                             </div>
+                                             <iframe 
+                                                 title="Folder Preview"
+                                                 src={`https://drive.google.com/embeddedfolderview?id=${folderMatch[1]}#grid`}
+                                                 style={{ width: '100%', flex: 1, minHeight: isPreviewExpanded ? '700px' : '550px', border: 'none', display: 'block' }}
+                                             ></iframe>
+                                         </div>
+                                     );
+                                 }
 
-                                return null;
-                             })() || (
-                                ((selectedTask.postType && selectedTask.postType.includes && selectedTask.postType.includes('Video')) || selectedTask.postType === 'Reel' || (selectedTask.designUrl && typeof selectedTask.designUrl === 'string' && selectedTask.designUrl.match(/\.(mp4|mov)$/i))) ? (
-                                    <video src={selectedTask.designUrl} controls style={{ maxWidth: '100%', maxHeight: '500px' }} />
-                                ) : (
-                                    <img src={selectedTask.designUrl} alt="Full Preview" style={{ maxWidth: '100%', maxHeight: '500px', objectFit: 'contain' }} />
-                                )
-                             )}
+                                 if (fileMatch) {
+                                     return (
+                                         <iframe 
+                                             title="File Preview"
+                                             src={`https://drive.google.com/file/d/${fileMatch[1]}/preview`}
+                                             style={{ width: '100%', height: isPreviewExpanded ? '750px' : '550px', border: 'none' }}
+                                             allow="autoplay; fullscreen"
+                                         ></iframe>
+                                     );
+                                 }
+
+                                 return null;
+                              })()}
                         </div>
                    ) : (
-                       <div style={{ padding: '2rem', textAlign: 'center', background: 'var(--bg-subtle)', border: '1px dashed var(--border)', borderRadius: '8px', color: 'var(--text-muted)' }}>
-                                                   <div style={{ padding: '3.5rem 2rem', textAlign: 'center', background: 'var(--bg-subtle)', border: '2px dashed var(--border)', borderRadius: '16px', color: 'var(--text-muted)' }}>
-                            <div style={{ background: 'rgba(52, 152, 219, 0.05)', width: '64px', height: '64px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
-                                <Clock size={32} style={{ opacity: 0.5, color: '#3498db' }} />
-                            </div>
-                            <div style={{ fontWeight: 800, color: 'var(--text-main)', fontSize: '1.1rem', marginBottom: '8px' }}>Content in Production</div>
-                            <p style={{ fontSize: '0.85rem', maxWidth: '240px', margin: '0 auto', lineHeight: '1.5' }}>Our designers are currently working on your campaign assets. They will appear here once ready.</p>
+                        <div style={{ padding: '4rem 2rem', textAlign: 'center', background: 'var(--bg-subtle)', border: '2px dashed var(--border)', borderRadius: '20px', color: 'var(--text-muted)', width: '100%' }}>
+                             <div style={{ background: 'rgba(52, 152, 219, 0.08)', width: '72px', height: '72px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
+                                 <Clock size={36} style={{ color: 'var(--primary)' }} />
+                             </div>
+                             <h3 style={{ fontWeight: 800, color: 'var(--text-main)', fontSize: '1.25rem', marginBottom: '10px' }}>Design in Production</h3>
+                             <p style={{ fontSize: '0.9rem', maxWidth: '280px', margin: '0 auto', lineHeight: '1.6' }}>Our team is crafting your campaign assets. Check back soon for the preview.</p>
                         </div>
-                       </div>
                    )}
-                   {selectedTask.designUrl && (
-                       <div style={{ marginTop: '1rem', textAlign: 'right' }}>
-                           <a href={selectedTask.designUrl} target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm">
-                               Open in New Tab ↗
-                           </a>
+                   
+                   {isPreviewExpanded && (
+                       <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
+                           <button 
+                                onClick={() => setIsPreviewExpanded(false)}
+                                className="btn btn-outline"
+                                style={{ padding: '10px 30px', borderRadius: '12px', fontWeight: 700 }}
+                           >
+                               Return to Details View
+                           </button>
                        </div>
                    )}
                </div>
             </div>
-            
-            <div style={{ marginTop: '2rem', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
-                 {/* Only show actions if design exists and status is appropriate */}
-                 {selectedTask.status === 'Design Uploaded' && (
-                     <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-                         <button 
-                            onClick={() => { setReviewingId(selectedTask.id); setSelectedTask(null); }} 
-                            className="btn btn-danger"
-                        >
-                            Reject Idea
-                        </button>
-                         <button 
-                            onClick={() => { handleApprove(selectedTask.id); setSelectedTask(null); }} 
-                            className="btn btn-success"
-                        >
-                            Approve Campaign
-                        </button>
-                     </div>
-                 )}
-            </div>
 
+            {/* Footer Actions */}
+            <div style={{ 
+                marginTop: '2.5rem', 
+                paddingTop: '1.5rem', 
+                borderTop: '1.5px solid var(--border)',
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '12px'
+            }}>
+                {selectedTask.status === 'Design Uploaded' && (
+                    <>
+                        <button 
+                            onClick={() => { setReviewingId(selectedTask.id); setSelectedTask(null); setIsPreviewExpanded(false); }} 
+                            className="btn btn-outline"
+                            style={{ color: '#C53030', borderColor: '#FED7D7', borderRadius: '10px', padding: '0.75rem 1.5rem' }}
+                        >
+                            <X size={18} /> Reject & Give Feedback
+                        </button>
+                        <button 
+                            onClick={() => { handleApprove(selectedTask.id); setSelectedTask(null); setIsPreviewExpanded(false); }} 
+                            className="btn btn-primary"
+                            style={{ background: '#059669', border: 'none', borderRadius: '10px', padding: '0.75rem 2rem' }}
+                        >
+                            <Check size={18} /> Approve & Finalize
+                        </button>
+                    </>
+                )}
+                <button 
+                    onClick={() => { setSelectedTask(null); setIsPreviewExpanded(false); }} 
+                    className="btn btn-ghost"
+                    style={{ borderRadius: '10px' }}
+                >
+                    Close Modal
+                </button>
+            </div>
           </div>
         </div>
       )}

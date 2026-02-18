@@ -180,19 +180,28 @@ export const dataService = {
       }
   },
 
-  updatePassword: async (userId, newPassword) => {
+  updatePassword: async (userId, newPassword, email = '', role = '') => {
       try {
         const params = new URLSearchParams({
             action: 'UpdatePassword',
             id: userId,
-            password: newPassword
+            password: newPassword,
+            email: email,
+            role: role,
+            updatedAt: new Date().toISOString()
         });
-        const validUrl = import.meta.env.VITE_FETCH_ALL_WEBHOOK && import.meta.env.VITE_FETCH_ALL_WEBHOOK.startsWith('http') 
-            ? import.meta.env.VITE_FETCH_ALL_WEBHOOK 
-            : 'https://n8n.srv1010832.hstgr.cloud/webhook/Fetchall';
-        await fetch(`${validUrl}?${params.toString()}`, {
-            method: 'GET', 
-            headers: { 'Content-Type': 'application/json' }
+        const validUrl = 'https://n8n.srv1010832.hstgr.cloud/webhook/3b33cbef-f527-4300-873b-5f8d5e3beeea';
+        await fetch(validUrl, {
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'UpdatePassword',
+                id: userId,
+                password: newPassword,
+                email: email,
+                role: role,
+                updatedAt: new Date().toISOString()
+            })
         });
         return true;
       } catch (e) {
@@ -316,7 +325,7 @@ export const dataService = {
 
     // Trigger n8n Webhook for Design Upload
     try {
-      await fetch(import.meta.env.VITE_WEBHOOK_DESIGN_UPLOAD, {
+      const response = await fetch(import.meta.env.VITE_WEBHOOK_DESIGN_UPLOAD, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -327,12 +336,18 @@ export const dataService = {
           uploadedAt: new Date().toISOString()
         })
       });
-      console.log('Design upload webhook sent successfully');
+      
+      if (response.ok) {
+          console.log('Design upload webhook sent successfully');
+          return dataService.updateStatus(id, "Design Uploaded", { designUrl: url, thumbnailUrl: thumbnailUrl });
+      } else {
+          console.error('Design upload webhook failed with status:', response.status);
+          return null;
+      }
     } catch (error) {
       console.error('Failed to send design upload webhook:', error);
+      return null;
     }
-
-    return dataService.updateStatus(id, "Design Uploaded", { designUrl: url, thumbnailUrl: thumbnailUrl });
   },
 
   uploadDesignFile: async (task, files, thumbnail = null) => {
@@ -356,9 +371,10 @@ export const dataService = {
         formData.append('uploadedAt', new Date().toISOString());
         formData.append('fileCount', fileList.length);
 
-        console.log(`Uploading ${fileList.length} file(s) and thumbnail to n8n webhook...`);
+        const validUrl = import.meta.env.VITE_WEBHOOK_DESIGN_UPLOAD || 'https://n8n.srv1010832.hstgr.cloud/webhook/16e07d6d-c58f-4ce1-ad00-f504ca9c40b2';
+        console.log(`Uploading ${fileList.length} file(s) and thumbnail to n8n webhook: ${validUrl}`);
 
-        const response = await fetch('https://n8n.srv1010832.hstgr.cloud/webhook-test/16e07d6d-c58f-4ce1-ad00-f504ca9c40b2', {
+        const response = await fetch(validUrl, {
             method: 'POST',
             body: formData,
         });

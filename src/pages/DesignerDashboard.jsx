@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { dataService } from '../utils/dataService';
-import { UploadCloud, Clock, AlertCircle, FileText, ArrowUp, ArrowDown, Trash2, Info, Eye, Hash, Calendar, MessageSquare } from 'lucide-react';
+import { UploadCloud, Clock, AlertCircle, FileText, ArrowUp, ArrowDown, Trash2, Info, Eye, Hash, Calendar, MessageSquare, Maximize2, Minimize2, ExternalLink, Check, X, ZoomIn, ZoomOut } from 'lucide-react';
 
 const StatusBadge = ({ status }) => {
   const normalized = status.replace(' ', '.');
@@ -20,6 +20,16 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
   const [dragActive, setDragActive] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false); // [NEW] Success Modal
   const [selectedTask, setSelectedTask] = useState(null); // [NEW] For details modal
+  const [isPreviewExpanded, setIsPreviewExpanded] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+
+  useEffect(() => {
+    if (!selectedTask) {
+      setZoomLevel(1);
+    }
+  }, [selectedTask]);
 
 
   useEffect(() => {
@@ -139,10 +149,47 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
 
 
 
+   const verifyRemoteUpload = async (taskId) => {
+    setIsVerifying(true);
+    let attempts = 0;
+    const maxAttempts = 18; // 3 minutes total (10s intervals)
+    
+    return new Promise((resolve) => {
+        const interval = setInterval(async () => {
+            attempts++;
+            console.log(`Verification attempt ${attempts} for task ${taskId}...`);
+            
+            try {
+                const remoteTasks = await dataService.getTasks();
+                const updatedTask = remoteTasks.find(t => t.id === taskId);
+                
+                // Check if the remote task now has a valid URL (not our local placeholder)
+                // and a thumbnail URL.
+                if (updatedTask && updatedTask.designUrl && updatedTask.thumbnailUrl && 
+                    !updatedTask.designUrl.includes('(Uploaded)')) {
+                    
+                    console.log('Remote verification successful!');
+                    clearInterval(interval);
+                    setIsVerifying(false);
+                    resolve(true);
+                }
+            } catch (err) {
+                console.error('Polling error:', err);
+            }
+            
+            if (attempts >= maxAttempts) {
+                console.warn('Verification timed out.');
+                clearInterval(interval);
+                setIsVerifying(false);
+                resolve(false);
+            }
+        }, 10000); // 10 seconds
+    });
+   };
+
    const handleSubmitDesign = async (e) => {
     e.preventDefault();
     
-    // Validation
     const hasDesign = designUrl || filesToUpload.length > 0;
     const hasThumbnail = thumbnailUrl || thumbnailFile;
 
@@ -151,34 +198,45 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
         return;
     }
 
-    // Handle File Upload
-    if (filesToUpload.length > 0 || thumbnailFile) {
-         await dataService.uploadDesignFile(uploadingTask, filesToUpload, thumbnailFile || thumbnailUrl);
-         handleCloseModal();
-         setShowSuccessModal(true);
-         return;
+    setIsUploading(true);
+    const taskId = uploadingTask.id;
+
+    try {
+        let uploadResult = null;
+
+        // Phase 1: Upload to Webhook
+        if (filesToUpload.length > 0 || thumbnailFile) {
+             uploadResult = await dataService.uploadDesignFile(uploadingTask, filesToUpload, thumbnailFile || thumbnailUrl);
+        } else {
+             if (!designUrl.includes('drive.google.com') && !designUrl.includes('docs.google.com')) {
+                 alert('Please provide a valid Google Drive link.');
+                 setIsUploading(false);
+                 return;
+             }
+             uploadResult = await dataService.uploadDesign(taskId, designUrl, thumbnailUrl);
+        }
+
+        if (uploadResult) {
+            // Phase 2: Wait for Sheet Sync (Polling)
+            const verified = await verifyRemoteUpload(taskId);
+            
+            if (verified) {
+                handleCloseModal();
+                setShowSuccessModal(true);
+            } else {
+                alert('Design sent, but we couldn\'t verify the sheet update yet. Please refresh in a minute.');
+                handleCloseModal();
+                fetchTasks(true);
+            }
+        } else {
+            alert('Initial transfer to n8n failed. Please try again.');
+        }
+    } catch (error) {
+        console.error('Submission error:', error);
+        alert('An unexpected error occurred during submission.');
+    } finally {
+        setIsUploading(false);
     }
-
-    // Handle Link Upload
-    if (!designUrl.includes('drive.google.com') && !designUrl.includes('docs.google.com')) {
-        alert('Please provide a valid Google Drive link.');
-        return;
-    }
-
-    // Optimistic Update
-    setTasks(prev => prev.map(t => t.id === uploadingTask.id ? { ...t, status: 'Design Uploaded', designUrl: designUrl } : t));
-    
-    // Close modal immediately
-    const tempId = uploadingTask.id;
-    const tempUrl = designUrl;
-    const tempThumb = thumbnailUrl;
-    handleCloseModal();
-
-    // API Call
-    await dataService.uploadDesign(tempId, tempUrl, tempThumb);
-    
-    // Show Success Modal
-    setShowSuccessModal(true);
   };
 
   const handleSuccessClose = () => {
@@ -330,7 +388,32 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
                   </div>
               )}
 
-              <form onSubmit={handleSubmitDesign}>
+              <form onSubmit={handleSubmitDesign} style={{ position: 'relative' }}>
+                  {/* Processing Overlay */}
+                  {(isUploading || isVerifying) && (
+                      <div style={{
+                          position: 'absolute', inset: -20, background: 'rgba(255,255,255,0.8)', 
+                          zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', 
+                          justifyContent: 'center', backdropFilter: 'blur(4px)', borderRadius: '12px',
+                          textAlign: 'center', padding: '2rem'
+                      }}>
+                          <div className="spinner" style={{ borderTopColor: 'var(--primary)', width: '48px', height: '48px', marginBottom: '1.5rem' }}></div>
+                          <div style={{ fontWeight: 800, color: 'var(--primary)', fontSize: '1.25rem', marginBottom: '0.5rem' }}>
+                              {isVerifying ? 'Verifying Submission...' : 'Uploading to Sheets...'}
+                          </div>
+                          <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', maxWidth: '250px', lineHeight: 1.5 }}>
+                              {isVerifying 
+                                ? 'Almost there! Confirming your data has been safely appended to the database.' 
+                                : 'Sending your design to our secure servers. This might take a few moments.'}
+                          </div>
+                          {isVerifying && (
+                              <div style={{ marginTop: '1rem', padding: '4px 12px', background: 'var(--bg-subtle)', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                                  Auto-checking every 10s
+                              </div>
+                          )}
+                      </div>
+                  )}
+
                   {/* Drag Drop Zone for Links */}
                   <div 
                     style={{
@@ -341,19 +424,20 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
                         backgroundColor: dragActive ? 'var(--primary-light)' : 'transparent',
                         marginBottom: '1.5rem',
                         transition: 'all 0.2s ease',
-                        cursor: 'pointer' // Indicate clickable
+                        cursor: isUploading ? 'default' : 'pointer' // Indicate clickable
                     }}
-                    onDragEnter={handleDrag}
-                    onDragLeave={handleDrag}
-                    onDragOver={handleDrag}
-                    onDrop={handleDrop}
-                    onClick={() => fileInputRef.current?.click()} // Trigger file browser
+                    onDragEnter={isUploading ? null : handleDrag}
+                    onDragLeave={isUploading ? null : handleDrag}
+                    onDragOver={isUploading ? null : handleDrag}
+                    onDrop={isUploading ? null : handleDrop}
+                    onClick={() => !isUploading && fileInputRef.current?.click()} // Trigger file browser
                   >
                       <input 
                         type="file" 
                         multiple 
                         ref={fileInputRef} 
                         onChange={handleFileSelect} 
+                        disabled={isUploading}
                         style={{ display: 'none' }} 
                       />
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', color: 'var(--text-muted)' }}>
@@ -369,18 +453,20 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
                                             Total Size: {(filesToUpload.reduce((acc, f) => acc + f.size, 0) / 1024 / 1024).toFixed(2)} MB
                                         </div>
                                     </div>
-                                    <button 
-                                        type="button" 
-                                        onClick={(e) => { 
-                                            e.stopPropagation(); 
-                                            setFilesToUpload([]); 
-                                            if (fileInputRef.current) fileInputRef.current.value = '';
-                                        }}
-                                        className="btn btn-outline"
-                                        style={{ marginLeft: 'auto', padding: '2px 8px', fontSize: '0.75rem', height: 'auto' }}
-                                    >
-                                        Clear All
-                                    </button>
+                                    {!isUploading && (
+                                        <button 
+                                            type="button" 
+                                            onClick={(e) => { 
+                                                e.stopPropagation(); 
+                                                setFilesToUpload([]); 
+                                                if (fileInputRef.current) fileInputRef.current.value = '';
+                                            }}
+                                            className="btn btn-outline"
+                                            style={{ marginLeft: 'auto', padding: '2px 8px', fontSize: '0.75rem', height: 'auto' }}
+                                        >
+                                            Clear All
+                                        </button>
+                                    )}
                                 </div>
                                 
                                 <div style={{ 
@@ -415,31 +501,33 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
                                             }} title={file.name}>
                                                 {file.name}
                                             </div>
-                                            <div style={{ display: 'flex', gap: '4px' }}>
-                                                <button 
-                                                    type="button"
-                                                    onClick={(e) => { e.stopPropagation(); moveFileUp(index); }}
-                                                    disabled={index === 0}
-                                                    style={{ padding: '4px', border: 'none', background: 'none', cursor: index === 0 ? 'default' : 'pointer', color: index === 0 ? 'var(--border)' : 'var(--text-muted)' }}
-                                                >
-                                                    <ArrowUp size={14} />
-                                                </button>
-                                                <button 
-                                                    type="button"
-                                                    onClick={(e) => { e.stopPropagation(); moveFileDown(index); }}
-                                                    disabled={index === filesToUpload.length - 1}
-                                                    style={{ padding: '4px', border: 'none', background: 'none', cursor: index === filesToUpload.length - 1 ? 'default' : 'pointer', color: index === filesToUpload.length - 1 ? 'var(--border)' : 'var(--text-muted)' }}
-                                                >
-                                                    <ArrowDown size={14} />
-                                                </button>
-                                                <button 
-                                                    type="button"
-                                                    onClick={(e) => { e.stopPropagation(); removeFile(index); }}
-                                                    style={{ padding: '4px', border: 'none', background: 'none', cursor: 'pointer', color: '#EF4444' }}
-                                                >
-                                                    <Trash2 size={14} />
-                                                </button>
-                                            </div>
+                                            {!isUploading && (
+                                                <div style={{ display: 'flex', gap: '4px' }}>
+                                                    <button 
+                                                        type="button"
+                                                        onClick={(e) => { e.stopPropagation(); moveFileUp(index); }}
+                                                        disabled={index === 0}
+                                                        style={{ padding: '4px', border: 'none', background: 'none', cursor: index === 0 ? 'default' : 'pointer', color: index === 0 ? 'var(--border)' : 'var(--text-muted)' }}
+                                                    >
+                                                        <ArrowUp size={14} />
+                                                    </button>
+                                                    <button 
+                                                        type="button"
+                                                        onClick={(e) => { e.stopPropagation(); moveFileDown(index); }}
+                                                        disabled={index === filesToUpload.length - 1}
+                                                        style={{ padding: '4px', border: 'none', background: 'none', cursor: index === filesToUpload.length - 1 ? 'default' : 'pointer', color: index === filesToUpload.length - 1 ? 'var(--border)' : 'var(--text-muted)' }}
+                                                    >
+                                                        <ArrowDown size={14} />
+                                                    </button>
+                                                    <button 
+                                                        type="button"
+                                                        onClick={(e) => { e.stopPropagation(); removeFile(index); }}
+                                                        style={{ padding: '4px', border: 'none', background: 'none', cursor: 'pointer', color: '#EF4444' }}
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
@@ -483,6 +571,7 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
                         placeholder="https://drive.google.com/..."
                         value={designUrl}
                         onChange={(e) => setDesignUrl(e.target.value)}
+                        disabled={isUploading}
                         style={{ width: '100%' }}
                       />
                   </div>
@@ -504,13 +593,13 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
 
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                           <div 
-                              onClick={() => thumbInputRef.current?.click()}
+                              onClick={() => !isUploading && thumbInputRef.current?.click()}
                               style={{ 
                                   border: `1px dashed ${thumbnailFile ? 'var(--primary)' : 'var(--border)'}`,
                                   borderRadius: '6px',
                                   padding: '1rem',
                                   textAlign: 'center',
-                                  cursor: 'pointer',
+                                  cursor: isUploading ? 'default' : 'pointer',
                                   background: 'var(--bg-card)',
                                   fontSize: '0.8rem'
                               }}
@@ -519,6 +608,7 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
                                   type="file" 
                                   ref={thumbInputRef} 
                                   accept="image/*"
+                                  disabled={isUploading}
                                   onChange={(e) => {
                                       const file = e.target.files?.[0];
                                       if (file) {
@@ -557,6 +647,7 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
                               type="text" 
                               placeholder="Thumbnail Drive Link..."
                               value={thumbnailUrl}
+                              disabled={isUploading}
                               onChange={(e) => {
                                   setThumbnailUrl(e.target.value);
                                   setThumbnailFile(null);
@@ -567,9 +658,15 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
                   </div>
 
                   <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                      <button type="button" className="btn btn-ghost" onClick={handleCloseModal}>Cancel</button>
-                      <button type="submit" className="btn btn-primary">
-                          {filesToUpload.length > 0 ? `Upload ${filesToUpload.length} File${filesToUpload.length > 1 ? 's' : ''}` : 'Submit Design'}
+                      <button type="button" className="btn btn-ghost" onClick={handleCloseModal} disabled={isUploading}>Cancel</button>
+                      <button type="submit" className="btn btn-primary" disabled={isUploading}>
+                          {isUploading ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <div className="spinner"></div> Processing...
+                              </div>
+                          ) : (
+                              filesToUpload.length > 0 ? `Upload ${filesToUpload.length} File${filesToUpload.length > 1 ? 's' : ''}` : 'Submit Design'
+                          )}
                       </button>
                   </div>
               </form>
@@ -599,102 +696,262 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
         </div>
       )}
 
-      {/* Details Modal */}
+      {/* Task Details Modal */}
       {selectedTask && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
-            <div className="card" style={{ width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '1rem' }}>
-                    <div>
-                        <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Campaign Details</h2>
-                        <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>ID: {selectedTask.id}</div>
-                    </div>
-                    <button onClick={() => setSelectedTask(null)} className="btn btn-ghost" style={{ padding: '4px' }}>
-                        <ArrowDown size={20} style={{ transform: 'rotate(45deg)' }} /> {/* Using ArrowDown as close for variety or just X */}
-                        <span onClick={() => setSelectedTask(null)} style={{ cursor: 'pointer', fontSize: '1.5rem', fontWeight: 'bold' }}>&times;</span>
-                    </button>
-                </div>
+        <div style={{ 
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
+          background: 'rgba(0,0,0,0.7)', zIndex: 60, 
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
+          backdropFilter: 'blur(4px)'
+        }}>
+          <div style={{ 
+            background: 'var(--bg-card)', padding: isPreviewExpanded ? '1.5rem' : '2.5rem', borderRadius: '24px', 
+            width: '100%', maxWidth: isPreviewExpanded ? '1200px' : '1000px', maxHeight: '95vh', overflowY: 'auto',
+            border: '1px solid var(--border)', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '1.5rem' }}>
+              <div>
+                  <h2 style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: '6px', letterSpacing: '-0.025em' }}>{selectedTask.campaignName}</h2>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <StatusBadge status={selectedTask.status} />
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 500 }}>• {selectedTask.postType || 'Static'}</span>
+                  </div>
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button 
+                    onClick={() => setIsPreviewExpanded(!isPreviewExpanded)}
+                    className="btn btn-ghost"
+                    style={{ padding: '8px', color: 'var(--primary)' }}
+                    title={isPreviewExpanded ? "Show Details" : "Focus Preview"}
+                >
+                    {isPreviewExpanded ? <Minimize2 size={22} /> : <Maximize2 size={22} />}
+                </button>
+                <button 
+                    onClick={() => { setSelectedTask(null); setIsPreviewExpanded(false); }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px' }}
+                >
+                    <X size={28} />
+                </button>
+              </div>
+            </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
-                    <div>
-                        <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Campaign Name</label>
-                        <div style={{ fontWeight: 600 }}>{selectedTask.campaignName}</div>
+            <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: isPreviewExpanded ? '1fr' : 'max(360px, 35%) 1fr', 
+                gap: '2.5rem',
+                animation: 'fadeIn 0.3s ease-out'
+            }}>
+               {/* Left Column: Details */}
+               {!isPreviewExpanded && (
+               <div>
+                  {selectedTask.status === 'Rejected' && selectedTask.feedback && (
+                    <div style={{ marginBottom: '2rem', padding: '1.25rem', background: '#FFF5F5', border: '1.5px solid #FED7D7', borderRadius: '16px' }}>
+                        <label style={{ fontSize: '0.75rem', color: '#C53030', textTransform: 'uppercase', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', letterSpacing: '0.05em' }}>
+                            <AlertCircle size={16} /> REVISION FEEDBACK
+                        </label>
+                        <div style={{ color: '#9B2C2C', fontSize: '0.95rem', fontWeight: 500, lineHeight: 1.5 }}>{selectedTask.feedback}</div>
                     </div>
-                    <div>
-                        <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Post Type</label>
-                        <div style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '4px', background: 'var(--primary-light)', color: 'var(--primary)', fontWeight: 600, fontSize: '0.85rem' }}>
-                            {selectedTask.postType}
-                        </div>
-                    </div>
-                </div>
+                  )}
 
-                <div style={{ marginBottom: '2rem' }}>
-                    <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                        <FileText size={14} /> Brief / Instructions
-                    </label>
-                    <div style={{ background: 'var(--bg-body)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border)', whiteSpace: 'pre-wrap', fontSize: '0.95rem', lineHeight: 1.6 }}>
+                  <div style={{ marginBottom: '2rem' }}>
+                      <label style={{ display: 'block', textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '8px', letterSpacing: '0.05em' }}>Campaign Brief</label>
+                      <div style={{ background: 'var(--bg-body)', padding: '1.25rem', borderRadius: '12px', border: '1px solid var(--border)', whiteSpace: 'pre-line', fontSize: '0.95rem', lineHeight: 1.6, color: 'var(--text-main)' }}>
                         {selectedTask.brief || 'No instructions provided.'}
-                    </div>
-                </div>
+                      </div>
+                  </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
-                    <div>
-                        <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                            <Clock size={14} /> Deadline
-                        </label>
-                        <div style={{ fontWeight: 500 }}>{selectedTask.deadline || 'Flexible'}</div>
-                    </div>
-                    <div>
-                        <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                            <Calendar size={14} /> Upload Schedule
-                        </label>
-                        <div style={{ fontWeight: 500 }}>
-                            {selectedTask.uploadDate ? `${selectedTask.uploadDate} at ${selectedTask.uploadTime || 'Anytime'}` : 'To be determined'}
-                        </div>
-                    </div>
-                </div>
+                  <div style={{ marginBottom: '2rem' }}>
+                      <label style={{ display: 'block', textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '8px', letterSpacing: '0.05em' }}>Delivery Details</label>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', padding: '1.25rem', background: 'var(--bg-subtle)', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                         <div>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>DEADLINE</span> <br/>
+                            <span style={{ fontWeight: 700, fontSize: '1rem' }}>{selectedTask.deadline || 'Flexible'}</span>
+                         </div>
+                         <div>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>CLIENT</span> <br/>
+                            <span style={{ fontWeight: 700, fontSize: '1rem' }}>{selectedTask.clientName || 'N/A'}</span>
+                         </div>
+                      </div>
+                  </div>
 
-                {(selectedTask.caption || selectedTask.hashtags) && (
-                    <div style={{ marginBottom: '2rem', padding: '1.5rem', background: 'var(--primary-light)', borderRadius: '12px', border: '1px dashed var(--primary)' }}>
-                        <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', color: 'var(--primary)', fontSize: '0.9rem', fontWeight: 700 }}>
-                            <MessageSquare size={16} /> Social Media Metadata
+                  {(selectedTask.caption || selectedTask.hashtags) && (
+                    <div style={{ marginBottom: '1.5rem', padding: '1.5rem', background: 'var(--primary-light)', borderRadius: '16px', border: '1px solid var(--primary)' }}>
+                        <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.25rem', color: 'var(--primary)', fontSize: '0.95rem', fontWeight: 800 }}>
+                            <MessageSquare size={18} /> SOCIAL METADATA
                         </h4>
                         
                         {selectedTask.caption && (
-                            <div style={{ marginBottom: '1rem' }}>
-                                <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Caption</label>
-                                <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontStyle: 'italic' }}>"{selectedTask.caption}"</div>
+                            <div style={{ marginBottom: '1.25rem' }}>
+                                <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px', fontWeight: 700, textTransform: 'uppercase' }}>Caption</label>
+                                <div style={{ fontSize: '0.9rem', color: 'var(--text-main)', fontStyle: 'italic', background: 'white', padding: '12px', borderRadius: '8px', border: '1px solid var(--border)' }}>"{selectedTask.caption}"</div>
                             </div>
                         )}
                         
                         {selectedTask.hashtags && (
                             <div>
-                                <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Hashtags</label>
-                                <div style={{ fontSize: '0.85rem', color: 'var(--primary)', fontWeight: 500, display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                                    <Hash size={12} /> {selectedTask.hashtags}
+                                <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px', fontWeight: 700, textTransform: 'uppercase' }}>Hashtags</label>
+                                <div style={{ fontSize: '0.9rem', color: 'var(--primary)', fontWeight: 600, display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                                    <Hash size={14} style={{ marginTop: '2px' }} /> {selectedTask.hashtags}
                                 </div>
                             </div>
                         )}
                     </div>
-                )}
+                  )}
+               </div>
+               )}
 
-                {selectedTask.status === 'Rejected' && selectedTask.feedback && (
-                    <div style={{ marginBottom: '2rem', padding: '1rem', background: '#FFF5F5', border: '1px solid #FED7D7', borderRadius: '8px' }}>
-                        <label style={{ fontSize: '0.75rem', color: '#C53030', textTransform: 'uppercase', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                            <AlertCircle size={14} /> Revision Feedback
-                        </label>
-                        <div style={{ color: '#9B2C2C', fontSize: '0.9rem' }}>{selectedTask.feedback}</div>
-                    </div>
-                )}
+               {/* Right Column: Preview */}
+               <div style={{ display: 'flex', flexDirection: 'column' }}>
+                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                            <label style={{ textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>Your Submission</label>
+                            {selectedTask.designUrl && !selectedTask.designUrl.includes('drive.google.com') && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--bg-subtle)', padding: '2px 8px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                                    <button onClick={() => setZoomLevel(prev => Math.max(0.5, prev - 0.25))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-main)', padding: '4px' }} title="Zoom Out"><ZoomOut size={16} /></button>
+                                    <span style={{ fontSize: '0.75rem', fontWeight: 700, minWidth: '40px', textAlign: 'center' }}>{Math.round(zoomLevel * 100)}%</span>
+                                    <button onClick={() => setZoomLevel(prev => Math.min(3, prev + 0.25))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-main)', padding: '4px' }} title="Zoom In"><ZoomIn size={16} /></button>
+                                </div>
+                            )}
+                        </div>
+                        {selectedTask.designUrl && (
+                            <a href={selectedTask.designUrl} target="_blank" rel="noopener noreferrer" 
+                               style={{ color: 'var(--primary)', fontSize: '0.75rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}>
+                                Open Full Size <ExternalLink size={14} />
+                            </a>
+                        )}
+                   </div>
+                   
+                   {selectedTask.designUrl ? (
+                        <div style={{ 
+                            borderRadius: '16px', overflow: 'hidden', border: '2px solid var(--border)',
+                            background: '#000', display: 'flex', justifyContent: 'center', alignItems: 'center', 
+                            minHeight: isPreviewExpanded ? '700px' : '500px',
+                            boxShadow: 'inset 0 0 20px rgba(0,0,0,0.5)',
+                            position: 'relative'
+                        }}>
+                             {(() => {
+                                 const url = selectedTask.designUrl;
+                                 
+                                 if (url && typeof url === 'string' && url.includes(' (Uploaded)')) {
+                                     const filePart = url.split(': ')[1]?.replace(' (Uploaded)', '');
+                                     const files = filePart ? filePart.split(', ') : [];
+                                     return (
+                                         <div style={{ padding: '2.5rem 1.5rem', width: '100%', background: 'var(--bg-card)', color: 'var(--text-main)', height: '100%', overflowY: 'auto' }}>
+                                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '2rem', borderBottom: '2px solid var(--primary-light)', paddingBottom: '1rem' }}>
+                                                 <div style={{ background: 'var(--bg-success-subtle)', color: 'var(--text-success)', padding: '8px', borderRadius: '12px' }}>
+                                                    <Check size={28} />
+                                                 </div>
+                                                 <div>
+                                                     <h3 style={{ fontWeight: 800, fontSize: '1.2rem', margin: 0 }}>{files.length} Content Items Uploaded</h3>
+                                                     <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>Client will review these assets.</p>
+                                                 </div>
+                                             </div>
+                                             <div style={{ display: 'grid', gridTemplateColumns: isPreviewExpanded ? 'repeat(auto-fill, minmax(200px, 1fr))' : '1fr', gap: '12px' }}>
+                                                 {files.map((f, i) => (
+                                                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 18px', background: 'var(--bg-body)', borderRadius: '12px', border: '1.3px solid var(--border)' }}>
+                                                         <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', fontWeight: 800, flexShrink: 0 }}>{i+1}</div>
+                                                         <div style={{ flex: 1, fontWeight: 600, fontSize: '0.95rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f}</div>
+                                                     </div>
+                                                 ))}
+                                             </div>
+                                         </div>
+                                     );
+                                 }
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid var(--border)', paddingTop: '1.5rem' }}>
-                    <button className="btn btn-primary" onClick={() => setSelectedTask(null)} style={{ padding: '0.5rem 2rem' }}>Close</button>
-                    {selectedTask.status === 'New' && (
-                        <button className="btn btn-outline" style={{ background: 'var(--primary)', color: 'white', border: 'none' }} onClick={() => { handleUploadClick(selectedTask); setSelectedTask(null); }}>
-                             <UploadCloud size={16} /> Proceed to Upload
-                        </button>
-                    )}
-                </div>
+                                 if (!url || typeof url !== 'string' || !url.includes('drive.google.com')) {
+                                     const isVideoType = (selectedTask.postType && selectedTask.postType.includes('Video')) || selectedTask.postType === 'Reel' || (url && url.match(/\.(mp4|mov)$/i));
+                                     return (
+                                        <div style={{ width: '100%', height: '100%', overflow: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            {isVideoType ? (
+                                                <video src={url} controls style={{ maxWidth: '100%', maxHeight: '100%', transform: `scale(${zoomLevel})`, transition: 'transform 0.2s ease-out' }} />
+                                            ) : (
+                                                <img src={url} alt="Full Preview" style={{ maxWidth: zoomLevel > 1 ? 'none' : '100%', maxHeight: zoomLevel > 1 ? 'none' : (isPreviewExpanded ? '750px' : '550px'), transform: `scale(${zoomLevel})`, transition: 'transform 0.2s ease-out', objectFit: 'contain' }} />
+                                            )}
+                                        </div>
+                                     );
+                                 }
+
+                                 const folderMatch = url.match(/\/folders\/([^/?]+)/);
+                                 const fileMatch = url.match(/\/d\/([^/]+)/) || url.match(/id=([^&]+)/);
+                                 
+                                 if (folderMatch) {
+                                     return (
+                                         <div style={{ width: '100%', height: '100%', background: '#f8fafc', display: 'flex', flexDirection: 'column' }}>
+                                             <iframe 
+                                                 title="Folder Preview"
+                                                 src={`https://drive.google.com/embeddedfolderview?id=${folderMatch[1]}#grid`}
+                                                 style={{ width: '100%', flex: 1, minHeight: isPreviewExpanded ? '700px' : '550px', border: 'none', display: 'block' }}
+                                             ></iframe>
+                                         </div>
+                                     );
+                                 }
+
+                                 if (fileMatch) {
+                                     return (
+                                         <iframe 
+                                             title="File Preview"
+                                             src={`https://drive.google.com/file/d/${fileMatch[1]}/preview`}
+                                             style={{ width: '100%', height: isPreviewExpanded ? '750px' : '550px', border: 'none' }}
+                                             allow="autoplay; fullscreen"
+                                         ></iframe>
+                                     );
+                                 }
+
+                                 return null;
+                              })()}
+                        </div>
+                   ) : (
+                        <div style={{ padding: '4rem 2rem', textAlign: 'center', background: 'var(--bg-subtle)', border: '2px dashed var(--border)', borderRadius: '20px', color: 'var(--text-muted)', width: '100%' }}>
+                             <div style={{ background: 'rgba(52, 152, 219, 0.08)', width: '72px', height: '72px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
+                                 <Clock size={36} style={{ color: 'var(--primary)' }} />
+                             </div>
+                             <h3 style={{ fontWeight: 800, color: 'var(--text-main)', fontSize: '1.25rem', marginBottom: '10px' }}>Upload Required</h3>
+                             <p style={{ fontSize: '0.9rem', maxWidth: '280px', margin: '0 auto', lineHeight: '1.6' }}>Review instructions and upload your designs to start the review process.</p>
+                        </div>
+                   )}
+                   
+                   {isPreviewExpanded && (
+                       <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
+                           <button 
+                                onClick={() => setIsPreviewExpanded(false)}
+                                className="btn btn-outline"
+                                style={{ padding: '10px 30px', borderRadius: '12px', fontWeight: 700 }}
+                           >
+                               Return to Details View
+                           </button>
+                       </div>
+                   )}
+               </div>
             </div>
+
+            {/* Footer Actions */}
+            <div style={{ 
+                marginTop: '2.5rem', 
+                paddingTop: '1.5rem', 
+                borderTop: '1.5px solid var(--border)',
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '12px'
+            }}>
+                <button 
+                    onClick={() => { setSelectedTask(null); setIsPreviewExpanded(false); }} 
+                    className="btn btn-ghost"
+                    style={{ borderRadius: '10px' }}
+                >
+                    Close
+                </button>
+                {selectedTask.status !== 'Approved' && (
+                    <button 
+                         className="btn btn-primary" 
+                         style={{ background: 'var(--primary)', border: 'none', borderRadius: '10px', padding: '0.75rem 2rem' }} 
+                         onClick={() => { handleUploadClick(selectedTask); setSelectedTask(null); setIsPreviewExpanded(false); }}
+                    >
+                         <UploadCloud size={18} /> {selectedTask.status === 'Rejected' ? 'Re-upload Design' : 'Proceed to Upload'}
+                    </button>
+                )}
+            </div>
+          </div>
         </div>
       )}
     </div>
