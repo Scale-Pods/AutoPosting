@@ -163,11 +163,13 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
                 const remoteTasks = await dataService.getTasks();
                 const updatedTask = remoteTasks.find(t => t.id === taskId);
                 
-                // Check if the remote task now has a valid URL (not our local placeholder)
-                // and a thumbnail URL.
-                if (updatedTask && updatedTask.designUrl && updatedTask.thumbnailUrl && 
-                    !updatedTask.designUrl.includes('(Uploaded)')) {
-                    
+                // Check if the remote task now has a valid URL (not our local placeholder).
+                // Thumbnail is only required if it's a Reel.
+                const isReel = updatedTask.postType === 'Reel';
+                const hasValidDesign = updatedTask && updatedTask.designUrl && !updatedTask.designUrl.includes('(Uploaded)');
+                const hasValidThumb = !isReel || (updatedTask.thumbnailUrl && !updatedTask.thumbnailUrl.includes('Link'));
+
+                if (hasValidDesign && hasValidThumb) {
                     console.log('Remote verification successful!');
                     clearInterval(interval);
                     setIsVerifying(false);
@@ -219,7 +221,7 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
                  setIsUploading(false);
                  return;
              }
-             uploadResult = await dataService.uploadDesign(taskId, designUrl, thumbnailUrl);
+             uploadResult = await dataService.uploadDesign(uploadingTask, designUrl, thumbnailUrl);
         }
 
         if (uploadResult) {

@@ -313,28 +313,40 @@ export const dataService = {
       saveDb(tasks);
       return Promise.resolve(tasks[idx]);
     }
-    return Promise.resolve(null); // Resolve null if not found (might be from webhook only)
+    // If not found in local DB (e.g. fresh from webhook), return a synthetic success object
+    // so the UI knows the action succeeded even if local cache isn't updated.
+    return Promise.resolve({ id, status, ...extraData });
   },
 
   // Specific Actions
-  uploadDesign: async (id, url, thumbnailUrl = null) => {
-    // Get task details for the webhook
-    const tasks = getDb();
-    const task = tasks.find(t => t.id === id);
+  uploadDesign: async (taskOrId, url, thumbnailUrl = null) => {
+    // Determine ID and Task object
+    const id = typeof taskOrId === 'object' ? taskOrId.id : taskOrId;
+    const task = typeof taskOrId === 'object' ? taskOrId : null;
     const campaignName = task ? task.campaignName : 'Unknown Campaign';
+
+    const validUrl = import.meta.env.VITE_WEBHOOK_DESIGN_UPLOAD || 'https://n8n.srv1010832.hstgr.cloud/webhook/16e07d6d-c58f-4ce1-ad00-f504ca9c40b2';
 
     // Trigger n8n Webhook for Design Upload
     try {
-      const response = await fetch(import.meta.env.VITE_WEBHOOK_DESIGN_UPLOAD, {
+      const payload = {
+        id: id,
+        'Unique ID': id, // Ensure both are sent for n8n compatibility
+        campaignName: campaignName,
+        designUrl: url,
+        thumbnailUrl: thumbnailUrl,
+        uploadedAt: new Date().toISOString()
+      };
+
+      // If we have the full task, include all its data
+      if (task) {
+        Object.assign(payload, task);
+      }
+
+      const response = await fetch(validUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: id,
-          campaignName: campaignName,
-          designUrl: url,
-          thumbnailUrl: thumbnailUrl,
-          uploadedAt: new Date().toISOString()
-        })
+        body: JSON.stringify(payload)
       });
       
       if (response.ok) {
@@ -368,6 +380,12 @@ export const dataService = {
         Object.keys(task).forEach(key => {
             formData.append(key, task[key] || '');
         });
+        
+        // Ensure Unique ID is present
+        if (!task['Unique ID'] && task.id) {
+            formData.append('Unique ID', task.id);
+        }
+
         formData.append('uploadedAt', new Date().toISOString());
         formData.append('fileCount', fileList.length);
 
