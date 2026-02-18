@@ -14,6 +14,9 @@ const LeadMagnets = () => {
     const [createForm, setCreateForm] = useState({ word: '', text: '' });
     const [isGenerating, setIsGenerating] = useState(false);
     const [isConfirming, setIsConfirming] = useState(false); // Confirmation State
+    const [isDeletingMagnet, setIsDeletingMagnet] = useState(false); // Deletion confirmation state
+    const [magnetToDelete, setMagnetToDelete] = useState(null);
+    const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
 
     const fetchMagnets = async (showLoading = true) => {
         if (showLoading) setLoading(true);
@@ -93,6 +96,34 @@ const LeadMagnets = () => {
         const generatedText = await dataService.generateLeadMagnetReply(createForm.word, createForm.text);
         setCreateForm(prev => ({ ...prev, text: generatedText }));
         setIsGenerating(false);
+    };
+
+    const handleDeleteClick = (magnet) => {
+        setMagnetToDelete(magnet);
+        setIsDeletingMagnet(true);
+    };
+
+    const handleDeleteConfirm = async () => {
+        if (!magnetToDelete) return;
+        
+        setSaving(true);
+        const success = await dataService.deleteLeadMagnet(magnetToDelete);
+        
+        if (success) {
+            setIsDeletingMagnet(false);
+            setShowDeleteSuccess(true);
+        } else {
+            alert('Failed to delete. Please try again.');
+            setIsDeletingMagnet(false);
+            setMagnetToDelete(null);
+        }
+        setSaving(false);
+    };
+
+    const handleDeleteSuccessOk = () => {
+        setShowDeleteSuccess(false);
+        setMagnetToDelete(null);
+        fetchMagnets(true);
     };
 
     const styles = {
@@ -415,6 +446,67 @@ const LeadMagnets = () => {
                 </div>
             )}
 
+            {isDeletingMagnet && (
+                <div style={styles.modalOverlay}>
+                    <div style={styles.modalContent}>
+                        <h3 style={styles.modalTitle}>Confirm Delete</h3>
+                        <p style={{color: 'var(--text-muted)', marginBottom: '1rem'}}>
+                            Are you sure you want to delete this Lead Magnet? This action cannot be undone.
+                        </p>
+                        
+                        <div style={styles.modalDetail}>
+                            <div style={{marginBottom: '0.5rem'}}>
+                                <span style={styles.label}>Keyword:</span>
+                                <div style={{fontWeight: 'bold', fontSize: '1rem', marginTop: '0.25rem'}}>
+                                    {magnetToDelete?.word}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style={styles.footerActions}>
+                            <button 
+                                onClick={() => { setIsDeletingMagnet(false); setMagnetToDelete(null); }} 
+                                style={styles.btnSecondary}
+                                disabled={saving}
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={handleDeleteConfirm} 
+                                style={{ ...styles.btnPrimary, backgroundColor: 'var(--status-rejected)' }}
+                                disabled={saving}
+                            >
+                                {saving ? 'Deleting...' : 'Delete Now'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showDeleteSuccess && (
+                <div style={styles.modalOverlay}>
+                    <div style={{ ...styles.modalContent, textAlign: 'center' }}>
+                        <div style={{ 
+                            width: '60px', height: '60px', borderRadius: '50%', backgroundColor: 'var(--bg-success-subtle)', 
+                            color: 'var(--text-success)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            margin: '0 auto 1.5rem auto'
+                        }}>
+                            <Check size={32} />
+                        </div>
+                        <h3 style={styles.modalTitle}>Deleted</h3>
+                        <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>
+                            The lead magnet has been successfully removed.
+                        </p>
+                        <button 
+                            onClick={handleDeleteSuccessOk} 
+                            style={{ ...styles.btnPrimary, width: '100%', justifyContent: 'center' }}
+                        >
+                            OK
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <div style={styles.header}>
                 <div style={styles.titleGroup}>
                     <div style={styles.iconBox}>
@@ -587,15 +679,26 @@ const LeadMagnets = () => {
                                                 </button>
                                             </>
                                         ) : (
-                                            <button 
-                                                onClick={() => handleEditClick(magnet)}
-                                                style={styles.actionBtn()}
-                                                title="Edit"
-                                                onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--primary)'; e.currentTarget.style.backgroundColor = 'var(--bg-body)'; }}
-                                                onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.backgroundColor = 'transparent'; }}
-                                            >
-                                                <Edit2 size={18} />
-                                            </button>
+                                            <>
+                                                <button 
+                                                    onClick={() => handleEditClick(magnet)}
+                                                    style={styles.actionBtn()}
+                                                    title="Edit"
+                                                    onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--primary)'; e.currentTarget.style.backgroundColor = 'var(--bg-body)'; }}
+                                                    onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.backgroundColor = 'transparent'; }}
+                                                >
+                                                    <Edit2 size={18} />
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleDeleteClick(magnet)}
+                                                    style={styles.actionBtn()}
+                                                    title="Delete"
+                                                    onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--status-rejected)'; e.currentTarget.style.backgroundColor = 'var(--bg-body)'; }}
+                                                    onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.backgroundColor = 'transparent'; }}
+                                                >
+                                                    <Trash2 size={18} />
+                                                </button>
+                                            </>
                                         )}
                                     </div>
                                 </div>

@@ -24,9 +24,10 @@ import { dataService } from '../utils/dataService';
 // Styles could be in a module, but keeping it simple with inline/global for this prototype
 // In a real app, I'd use CSS modules or styled-components
 
-const SidebarItem = ({ to, icon: Icon, label, onClick }) => (
+const SidebarItem = ({ to, icon: Icon, label, onClick, end = false }) => (
   <NavLink 
     to={to} 
+    end={end}
     className={({ isActive }) => 
       `btn btn-ghost w-full justify-start text-left mb-1 ${isActive ? 'bg-indigo-50 text-indigo-600 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`
     }
@@ -142,7 +143,7 @@ const DashboardLayout = () => {
           {userRole === 'designer' && (
              <>
                <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase' }}>Workspace</div>
-               <SidebarItem to="/designer" icon={LayoutDashboard} label="Assigned Tasks" onClick={() => window.innerWidth < 768 && setIsSidebarOpen(false)} />
+               <SidebarItem to="/designer" icon={LayoutDashboard} label="Assigned Tasks" end onClick={() => window.innerWidth < 768 && setIsSidebarOpen(false)} />
                <SidebarItem to="/designer/sent" icon={CheckCircle} label="Sent for Review" onClick={() => window.innerWidth < 768 && setIsSidebarOpen(false)} />
                <SidebarItem to="/designer/rejected" icon={XCircle} label="Rejected Tasks" onClick={() => window.innerWidth < 768 && setIsSidebarOpen(false)} />
              </>
@@ -151,7 +152,7 @@ const DashboardLayout = () => {
           {userRole === 'client' && (
              <>
                <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase' }}>Campaigns</div>
-               <SidebarItem to="/client" icon={Briefcase} label="All Campaigns" onClick={() => window.innerWidth < 768 && setIsSidebarOpen(false)} />
+               <SidebarItem to="/client" icon={Briefcase} label="All Campaigns" end onClick={() => window.innerWidth < 768 && setIsSidebarOpen(false)} />
                <SidebarItem to="/client/lead-magnets" icon={Magnet} label="Lead Magnets" onClick={() => window.innerWidth < 768 && setIsSidebarOpen(false)} />
              </>
           )}
@@ -176,20 +177,12 @@ const DashboardLayout = () => {
                 </div>
 
                 {userRole === 'client' && (
-                    <NavLink 
+                    <SidebarItem 
                         to="/client/settings" 
-                        onClick={() => window.innerWidth < 768 && setIsSidebarOpen(false)}
-                        className={({ isActive }) => 
-                        `btn btn-ghost w-full justify-center mb-2 ${isActive ? 'bg-indigo-50 text-indigo-600 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`
-                        }
-                        style={({ isActive }) => ({
-                            backgroundColor: isActive ? 'var(--primary-light)' : 'transparent',
-                            color: isActive ? 'var(--primary)' : 'var(--text-muted)'
-                        })}
-                    >
-                        <Settings size={20} />
-                        <span style={{ marginLeft: '12px' }}>Settings</span>
-                    </NavLink>
+                        icon={Settings} 
+                        label="Settings" 
+                        onClick={() => window.innerWidth < 768 && setIsSidebarOpen(false)} 
+                    />
                 )}
               </>
            )}

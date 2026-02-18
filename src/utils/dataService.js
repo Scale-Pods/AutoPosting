@@ -279,7 +279,8 @@ export const dataService = {
             uploadDate: String(item['Upload Date'] || ''),
             uploadTime: String(item['Upload Time'] || ''),
             caption: String(item['Caption'] || ''),
-            hashtags: String(item['Hashtag'] || item['Hashtags'] || '') 
+            hashtags: String(item['Hashtag'] || item['Hashtags'] || ''),
+            thumbnailUrl: item.Thumbnail || item.thumbnailUrl || null
         };
       });
     } catch (error) {
@@ -307,7 +308,7 @@ export const dataService = {
   },
 
   // Specific Actions
-  uploadDesign: async (id, url) => {
+  uploadDesign: async (id, url, thumbnailUrl = null) => {
     // Get task details for the webhook
     const tasks = getDb();
     const task = tasks.find(t => t.id === id);
@@ -322,6 +323,7 @@ export const dataService = {
           id: id,
           campaignName: campaignName,
           designUrl: url,
+          thumbnailUrl: thumbnailUrl,
           uploadedAt: new Date().toISOString()
         })
       });
@@ -330,10 +332,10 @@ export const dataService = {
       console.error('Failed to send design upload webhook:', error);
     }
 
-    return dataService.updateStatus(id, "Design Uploaded", { designUrl: url });
+    return dataService.updateStatus(id, "Design Uploaded", { designUrl: url, thumbnailUrl: thumbnailUrl });
   },
 
-  uploadDesignFile: async (task, files) => {
+  uploadDesignFile: async (task, files, thumbnail = null) => {
     try {
         const formData = new FormData();
         // Handle single file or array of files
@@ -343,6 +345,10 @@ export const dataService = {
             formData.append('file', file);
         });
 
+        if (thumbnail) {
+            formData.append('thumbnail', thumbnail);
+        }
+
         // Append all task details as requested
         Object.keys(task).forEach(key => {
             formData.append(key, task[key] || '');
@@ -350,7 +356,7 @@ export const dataService = {
         formData.append('uploadedAt', new Date().toISOString());
         formData.append('fileCount', fileList.length);
 
-        console.log(`Uploading ${fileList.length} file(s) to n8n webhook...`);
+        console.log(`Uploading ${fileList.length} file(s) and thumbnail to n8n webhook...`);
 
         const response = await fetch('https://n8n.srv1010832.hstgr.cloud/webhook-test/16e07d6d-c58f-4ce1-ad00-f504ca9c40b2', {
             method: 'POST',
@@ -362,7 +368,11 @@ export const dataService = {
             // We assume the webhook handles storage and we just update status here.
             // Since we don't have a URL yet (unless webhook returns it), we'll mark as uploaded.
             const fileNames = fileList.map(f => f.name).join(', ');
-            return dataService.updateStatus(task.id, "Design Uploaded", { designUrl: `${fileList.length} Files: ${fileNames} (Uploaded)` });
+            const thumbName = thumbnail instanceof File ? thumbnail.name : 'Link';
+            return dataService.updateStatus(task.id, "Design Uploaded", { 
+                designUrl: `${fileList.length} Files: ${fileNames} (Uploaded)`,
+                thumbnailUrl: thumbName
+            });
         } else {
             console.error('File upload failed with status:', response.status);
         }
@@ -863,5 +873,64 @@ export const dataService = {
     }
 
     return newDesigner;
+  },
+
+  deleteDesigner: async (designer) => {
+    // 1. Remove from Local Storage
+    const stored = localStorage.getItem('mw_designers');
+    if (stored) {
+      const designers = JSON.parse(stored);
+      const filtered = designers.filter(d => d.id !== designer.id && d.email !== designer.email);
+      localStorage.setItem('mw_designers', JSON.stringify(filtered));
+    }
+
+    // 2. Trigger n8n Webhook for Removal
+    try {
+      const webhookUrl = 'https://n8n.srv1010832.hstgr.cloud/webhook/3b33cbef-f527-4300-873b-5f8d5e3beeea';
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'deletedesigner',
+          id: designer.id,
+          email: designer.email,
+          name: designer.name,
+          deletedAt: new Date().toISOString()
+        })
+      });
+      console.log('Delete Designer webhook status:', response.status);
+      return response.ok;
+    } catch (error) {
+      console.error('Failed to send Delete Designer webhook:', error);
+      return false;
+    }
+  },
+
+  deleteLeadMagnet: async (magnet) => {
+    try {
+        const deleteUrl = 'https://n8n.srv1010832.hstgr.cloud/webhook/3b33cbef-f527-4300-873b-5f8d5e3beeea';
+        
+        console.log(`Deleting Lead Magnet [${magnet.id}]:`, magnet);
+
+        const response = await fetch(deleteUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'DelLM',
+                id: magnet.id,
+                Word: magnet.word,
+                'Text to be sent ': magnet.text,
+                deletedAt: new Date().toISOString()
+            })
+        });
+        
+        if (response.ok) {
+            console.log('Lead Magnet Deleted Successfully');
+            return true;
+        }
+    } catch (e) {
+        console.error("Failed to delete lead magnet:", e);
+    }
+    return false;
   }
 };

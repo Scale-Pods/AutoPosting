@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { dataService } from '../utils/dataService';
-import { UserPlus, Mail, User } from 'lucide-react';
+import { UserPlus, Mail, User, Trash2 } from 'lucide-react';
 
 const Settings = () => {
   const [designers, setDesigners] = useState([]);
   const [newDesigner, setNewDesigner] = useState({ name: '', email: '' });
   const [isFormOpen, setIsFormOpen] = useState(false); // [NEW] Toggle state
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successContent, setSuccessContent] = useState({ title: '', message: '' });
 
   const loadDesigners = async () => {
     const list = await dataService.getDesigners();
@@ -22,7 +24,27 @@ const Settings = () => {
     
     await dataService.addDesigner(newDesigner);
     setNewDesigner({ name: '', email: '' });
-    setIsFormOpen(false); // Close after save
+    setIsFormOpen(false); 
+    setSuccessContent({
+      title: 'Designer Added!',
+      message: 'The new designer has been successfully added to your team.'
+    });
+    setShowSuccessModal(true);
+  };
+
+  const handleDeleteDesigner = async (designer) => {
+    if (window.confirm(`Are you sure you want to remove ${designer.name}?`)) {
+      await dataService.deleteDesigner(designer);
+      setSuccessContent({
+        title: 'Designer Removed',
+        message: `${designer.name} has been successfully removed from your team.`
+      });
+      setShowSuccessModal(true);
+    }
+  };
+
+  const handleSuccessClose = () => {
+    setShowSuccessModal(false);
     loadDesigners();
   };
 
@@ -105,12 +127,43 @@ const Settings = () => {
                    <div style={{ fontWeight: 600 }}>{d.name}</div>
                    <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>{d.email}</div>
                  </div>
-                 <div style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', background: 'var(--bg-success-subtle)', color: 'var(--text-success)' }}>Active</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                     <div style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', background: 'var(--bg-success-subtle)', color: 'var(--text-success)' }}>Active</div>
+                     <button 
+                        onClick={() => handleDeleteDesigner(d)}
+                        style={{ color: 'var(--text-error)', cursor: 'pointer', padding: '4px' }}
+                        title="Remove Designer"
+                     >
+                        <Trash2 size={18} />
+                     </button>
+                  </div>
               </div>
             ))}
             {designers.length === 0 && <p style={{ color: 'var(--text-muted)' }}>No designers added yet.</p>}
          </div>
       </div>
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 110 }}>
+            <div className="card" style={{ width: '100%', maxWidth: '400px', textAlign: 'center', padding: '2rem' }}>
+                <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--status-approved)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+                    <UserPlus size={24} />
+                </div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.5rem' }}>{successContent.title}</h3>
+                <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
+                    {successContent.message}
+                </p>
+                <button 
+                    onClick={handleSuccessClose} 
+                    className="btn btn-primary" 
+                    style={{ width: '100%', justifyContent: 'center' }}
+                >
+                    OK
+                </button>
+            </div>
+        </div>
+      )}
     </div>
   );
 };

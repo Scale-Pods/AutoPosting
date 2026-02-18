@@ -151,7 +151,7 @@ const ClientDashboard = () => {
       
       {[
           { title: 'Yet to be Reviewed', list: tasks.filter(t => t.status === 'Design Uploaded'), color: 'var(--primary)', empty: 'No designs waiting for review.' },
-          { title: 'Accepted', list: tasks.filter(t => t.status === 'Approved'), color: 'var(--status-approved)', empty: 'No approved campaigns yet.' },
+          { title: 'Approved', list: tasks.filter(t => t.status === 'Approved'), color: 'var(--status-approved)', empty: 'No approved campaigns yet.' },
           { title: 'Rejected', list: tasks.filter(t => t.status === 'Rejected'), color: 'var(--status-rejected)', empty: 'No rejected campaigns.' },
           { title: 'Waiting for Design', list: tasks.filter(t => t.status === 'New'), color: 'var(--text-muted)', empty: 'No new briefs pending.' }
       ].map((section, idx) => (
@@ -224,122 +224,111 @@ const ClientDashboard = () => {
                         {/* Design Preview Area */}
                         
                         {(() => {
-                            // Relaxed regex to capture ID between /d/ and / (or end), or id=...
-                            const folderMatch = task.designUrl && typeof task.designUrl === 'string' ? task.designUrl.match(/\/folders\/([^/?]+)/) : null;
-                            const fileMatch = task.designUrl && typeof task.designUrl === 'string' ? (task.designUrl.match(/\/d\/([^/]+)/) || task.designUrl.match(/id=([^&]+)/)) : null;
+                            const extractDriveId = (url) => {
+                                if (!url || typeof url !== 'string') return null;
+                                const match = url.match(/\/d\/([^/]+)/) || url.match(/id=([^&]+)/) || url.match(/\/folders\/([^/?]+)/);
+                                return match ? match[1] : null;
+                            };
 
-                            const isFolder = !!folderMatch;
-                            const driveId = isFolder ? folderMatch[1] : (fileMatch ? fileMatch[1] : null);
-                                
-                            // Determine if this is a Vertical format (Reel/Story) or standard Video
+                            // Prioritize thumbnailUrl for card preview
+                            const thumbId = extractDriveId(task.thumbnailUrl);
+                            const designId = extractDriveId(task.designUrl);
+                            const driveId = thumbId || designId;
+
+                            const isFolder = task.designUrl && typeof task.designUrl === 'string' && task.designUrl.includes('/folders/');
                             const isVertical = task.postType === 'Reel' || task.postType === 'Story (Reel)';
                             const isVideoType = isVertical || (task.postType && task.postType.includes && task.postType.includes('Video'));
                             
-                            // Determine Aspect Ratio
-                            const containerRatio = isVertical ? '9/16' : (isVideoType ? '16/9' : (isFolder ? '1/1' : undefined));
+                            // Use 1/1 for cards if not vertical to keep grid clean
+                            const containerRatio = isVertical ? '9/16' : '1/1';
 
                             return (
                                 <div style={{ display: 'flex', justifyContent: 'center', width: '100%', marginBottom: 'auto' }}>
                                     <div style={{ 
-                                        width: isVertical ? 'auto' : '100%',
-                                        height: isVertical ? '300px' : 'auto',
+                                        width: '100%',
+                                        height: isVertical ? '280px' : 'auto',
                                         aspectRatio: containerRatio,
-                                        borderRadius: '6px',
+                                        borderRadius: '8px',
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
                                         overflow: 'hidden',
                                         position: 'relative',
                                         border: task.designUrl ? '1px solid var(--border)' : '1px dashed var(--border)',
-                                        background: 'transparent',
-                                        minHeight: containerRatio ? undefined : '50px' 
-                                    }} className="group">
+                                        background: '#000', // Black background for videos/images to avoid grey
+                                        boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)'
+                                    }}>
                                         {task.designUrl ? (
-                                            <>
-                                                {isFolder && driveId ? (
-                                                   <div style={{ position: 'relative', width: '100%', height: '100%', minHeight: '300px' }}>
-                                                       {/* Folder Embed */}
-                                                       <iframe 
-                                                            title="Drive Folder"
-                                                            src={`https://drive.google.com/embeddedfolderview?id=${driveId}#grid`}
-                                                            style={{ width: '100%', height: '100%', border: 'none' }}
-                                                       ></iframe>
-                                                       <div style={{ 
-                                                            position: 'absolute', bottom: '6px', right: '6px', zIndex: 10
-                                                        }}>
-                                                            <button 
-                                                                onClick={(e) => { e.stopPropagation(); window.open(task.designUrl, '_blank'); }}
-                                                                className="btn btn-sm btn-light"
-                                                                style={{ background: 'rgba(255,255,255,0.9)', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', fontSize: '0.65rem', padding: '2px 6px' }}
-                                                            >
-                                                                Open Folder ↗
-                                                            </button>
-                                                        </div>
-                                                   </div>
-                                                ) : (driveId ? (
-                                                    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-                                                        {isVideoType ? (
-                                                            activePreviewId === task.id ? (
-                                                                <iframe 
-                                                                    title="Drive Preview"
-                                                                    src={`https://drive.google.com/file/d/${driveId}/preview`}
-                                                                    style={{ width: '100%', height: '100%', border: 'none' }}
-                                                                    allow="autoplay; fullscreen"
-                                                                ></iframe>
-                                                            ) : (
-                                                                <div 
-                                                                    style={{ width: '100%', height: '100%', position: 'relative', cursor: 'pointer' }}
-                                                                    onClick={(e) => { e.stopPropagation(); togglePreview(task.id); }}
-                                                                >
-                                                                    <img 
-                                                                        src={`https://drive.google.com/thumbnail?id=${driveId}&sz=w800`}
-                                                                        alt="Click to Play"
-                                                                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                                                                        onError={(e) => { 
-                                                                            e.target.onerror = null; 
-                                                                            e.target.src = 'https://placehold.co/400x600/png?text=Preview+Unavailable';
-                                                                        }} 
-                                                                    />
-                                                                    {/* Removed custom play button overlay to avoid duplication with Drive thumbnail */}
+                                            <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                                                {driveId || (task.thumbnailUrl && task.thumbnailUrl.startsWith('http')) ? (
+                                                    <img 
+                                                        src={driveId ? `https://drive.google.com/thumbnail?id=${driveId}&sz=w1200` : task.thumbnailUrl}
+                                                        alt="Design Preview"
+                                                        style={{ 
+                                                            width: '100%', 
+                                                            height: '100%', 
+                                                            objectFit: (thumbId || !isFolder) ? 'cover' : 'contain', 
+                                                            display: 'block' 
+                                                        }}
+                                                        onError={(e) => { 
+                                                            e.target.onerror = null; 
+                                                            const designText = (task.designUrl && typeof task.designUrl === 'string' && !task.designUrl.includes('drive.google.com')) 
+                                                                ? task.designUrl.replace(' (Uploaded)', '') 
+                                                                : (task.campaignName || 'Unnamed Campaign');
+
+                                                            e.target.parentNode.innerHTML = `
+                                                                <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle at top left, #1E293B, #0F172A); color: white; padding: 24px; text-align: center; border: 1px solid rgba(159, 212, 138, 0.1);">
+                                                                    <div style="background: rgba(159, 212, 138, 0.1); width: 64px; height: 64px; border-radius: 16px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; border: 1px solid rgba(159, 212, 138, 0.2); box-shadow: 0 8px 16px rgba(0,0,0,0.2);">
+                                                                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#9FD48A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                                            ${isFolder ? '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>' : '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline>'}
+                                                                        </svg>
+                                                                    </div>
+                                                                    <div style="font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; color: #9FD48A; margin-bottom: 8px; opacity: 0.9;">
+                                                                        ${isFolder ? 'Carousel Folder' : 'Design Assets'}
+                                                                    </div>
+                                                                    <div style="font-size: 0.9rem; font-weight: 600; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; color: #F8FAFC;">
+                                                                        ${designText}
+                                                                    </div>
+                                                                    <div style="margin-top: 12px; font-size: 0.7rem; color: #94A3B8; display: flex; alignItems: center; gap: 4px;">
+                                                                        Click to Review Contents ↗
+                                                                    </div>
                                                                 </div>
-                                                            )
-                                                        ) : (
-                                                            <img 
-                                                                src={`https://drive.google.com/thumbnail?id=${driveId}&sz=w1200`}
-                                                                alt="Design"
-                                                                style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
-                                                                onError={(e) => { 
-                                                                    e.target.onerror = null; 
-                                                                    e.target.style.display = 'none';
-                                                                }} 
-                                                            />
-                                                        )}
-                                                        
-                                                        <div style={{ 
-                                                            position: 'absolute', bottom: '6px', right: '6px', zIndex: 10
-                                                        }}>
-                                                            <button 
-                                                                onClick={(e) => { e.stopPropagation(); window.open(task.designUrl, '_blank'); }}
-                                                                className="btn btn-sm btn-light"
-                                                                style={{ background: 'rgba(255,255,255,0.9)', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', fontSize: '0.65rem', padding: '2px 6px' }}
-                                                            >
-                                                                Drive ↗
-                                                            </button>
+                                                            `;
+                                                        }} 
+                                                    />
+                                                ) : (
+                                                    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-subtle)', color: 'var(--text-muted)', gap: '12px' }}>
+                                                        <Plus size={32} />
+                                                        <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>Explore Contents ↗</span>
+                                                    </div>
+                                                )}
+                                                
+                                                {/* Play Overlay for Videos */}
+                                                {isVideoType && (
+                                                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.2)' }}>
+                                                        <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(255,255,255,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000' }}>
+                                                            <Check size={20} /> {/* Simple indicator */}
                                                         </div>
                                                     </div>
-                                                ) : (task.designUrl && typeof task.designUrl === 'string' && (task.designUrl.includes('.mp4') || task.designUrl.includes('.mov') || task.designUrl.includes('reel'))) ? (
-                                                    <video src={task.designUrl} style={{ width: '100%', height: '100%', objectFit: 'contain' }} muted loop autoPlay playsInline controls onClick={(e) => e.stopPropagation()} />
-                                                ) : (
-                                                    <img 
-                                                        src={task.designUrl} 
-                                                        alt="Design" 
-                                                        style={{ width: '100%', height: 'auto', maxHeight: '300px', objectFit: 'contain', display: 'block' }} 
-                                                        onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/600x400/png?text=Broken+Link'; }}
-                                                    />
-                                                ))}
-                                            </>
+                                                )}
+
+                                                <div style={{ 
+                                                    position: 'absolute', bottom: '8px', right: '8px', zIndex: 10
+                                                }}>
+                                                    <button 
+                                                        onClick={(e) => { e.stopPropagation(); window.open(task.designUrl, '_blank'); }}
+                                                        className="btn btn-sm"
+                                                        style={{ background: 'rgba(255,255,255,0.9)', color: '#000', boxShadow: '0 2px 4px rgba(0,0,0,0.2)', fontSize: '0.7rem', padding: '4px 8px', height: 'auto', fontWeight: 600 }}
+                                                    >
+                                                        {isFolder ? 'Folder ↗' : (isVideoType ? 'Video ↗' : 'Drive ↗')}
+                                                    </button>
+                                                </div>
+                                            </div>
                                         ) : (
-                                            <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', padding: '1rem' }}>No design uploaded</div>
+                                            <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', padding: '1rem', textAlign: 'center' }}>
+                                                <Clock size={24} style={{ marginBottom: '8px', opacity: 0.5 }} /> <br/>
+                                                Pending Design
+                                            </div>
                                         )}
                                     </div>
                                 </div>
@@ -556,28 +545,112 @@ const ClientDashboard = () => {
 
                {/* Right Column: Preview */}
                <div>
-                   <label style={{ display: 'block', textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '4px' }}>Preview</label>
+                   <label style={{ display: 'block', textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '12px' }}>Campaign Contents & Preview</label>
                    {selectedTask.designUrl ? (
                         <div style={{ 
                             borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border)',
                             background: '#000', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px' 
                         }}>
-                             {selectedTask.designUrl && typeof selectedTask.designUrl === 'string' && selectedTask.designUrl.includes('drive.google.com') ? (
-                                <iframe 
-                                    title="Full Preview"
-                                    src={`https://drive.google.com/file/d/${selectedTask.designUrl.match(/\/d\/([^/]+)/)?.[1] || selectedTask.designUrl.match(/id=([^&]+)/)?.[1]}/preview`}
-                                    style={{ width: '100%', height: '400px', border: 'none' }}
-                                    allow="autoplay; fullscreen"
-                                ></iframe>
-                             ) : ((selectedTask.postType && selectedTask.postType.includes && selectedTask.postType.includes('Video')) || selectedTask.postType === 'Reel' || (selectedTask.designUrl && typeof selectedTask.designUrl === 'string' && selectedTask.designUrl.match(/\.(mp4|mov)$/i))) ? (
-                                <video src={selectedTask.designUrl} controls style={{ maxWidth: '100%', maxHeight: '500px' }} />
-                             ) : (
-                                <img src={selectedTask.designUrl} alt="Full Preview" style={{ maxWidth: '100%', maxHeight: '500px', objectFit: 'contain' }} />
+                             {(() => {
+                                const url = selectedTask.designUrl;
+                                                                 // Handle Direct Multi-File Upload string: "X Files: name1, name2 (Uploaded)"
+                                 if (url && typeof url === 'string' && url.includes(' (Uploaded)')) {
+                                     const filePart = url.split(': ')[1]?.replace(' (Uploaded)', '');
+                                     const files = filePart ? filePart.split(', ') : [];
+                                     return (
+                                         <div style={{ padding: '2.5rem 1.5rem', width: '100%', background: 'var(--bg-card)', color: 'var(--text-main)' }}>
+                                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '2rem', borderBottom: '2px solid var(--primary-light)', paddingBottom: '1rem' }}>
+                                                 <div style={{ background: 'var(--bg-success-subtle)', color: 'var(--text-success)', padding: '8px', borderRadius: '12px' }}>
+                                                    <Check size={28} />
+                                                 </div>
+                                                 <div>
+                                                     <h3 style={{ fontWeight: 800, fontSize: '1.2rem', margin: 0 }}>{files.length} Content Items Ready</h3>
+                                                     <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>Review assets for this campaign.</p>
+                                                 </div>
+                                             </div>
+                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '300px', overflowY: 'auto' }}>
+                                                 {files.map((f, i) => (
+                                                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: 'var(--bg-body)', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                                                         <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 800 }}>{i+1}</div>
+                                                         <div style={{ flex: 1, fontWeight: 500, fontSize: '0.9rem' }}>{f}</div>
+                                                     </div>
+                                                 ))}
+                                             </div>
+                                         </div>
+                                     );
+                                 }
+
+                                 if (!url || typeof url !== 'string' || !url.includes('drive.google.com')) return null;
+
+                                const folderMatch = url.match(/\/folders\/([^/?]+)/);
+                                const fileMatch = url.match(/\/d\/([^/]+)/) || url.match(/id=([^&]+)/);
+                                
+                                if (folderMatch) {
+                                    return (
+                                        <div style={{ 
+                                            width: '100%', 
+                                            background: '#f8fafc', // Light background for the Google Drive list for better visibility
+                                            borderRadius: '12px', 
+                                            overflow: 'hidden', 
+                                            border: '1px solid var(--border)',
+                                            boxShadow: '0 10px 30px -10px rgba(0,0,0,0.5)'
+                                        }}>
+                                            <div style={{ 
+                                                padding: '10px 16px', 
+                                                background: 'var(--bg-card)', 
+                                                borderBottom: '1px solid var(--border)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '8px'
+                                            }}>
+                                                <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#ff5f56' }}></div>
+                                                <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#ffbd2e' }}></div>
+                                                <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#27c93f' }}></div>
+                                                <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', marginLeft: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                    Carousel Assets
+                                                </span>
+                                            </div>
+                                            <iframe 
+                                                title="Folder Preview"
+                                                src={`https://drive.google.com/embeddedfolderview?id=${folderMatch[1]}#grid`}
+                                                style={{ width: '100%', height: '550px', border: 'none', display: 'block' }}
+                                            ></iframe>
+                                        </div>
+                                    );
+                                }
+
+                                if (fileMatch) {
+                                    const driveId = fileMatch[1];
+                                    const isVideoType = (selectedTask.postType && selectedTask.postType.includes('Video')) || selectedTask.postType === 'Reel' || selectedTask.postType === 'Story (Reel)';
+                                    
+                                    return (
+                                        <iframe 
+                                            title="File Preview"
+                                            src={`https://drive.google.com/file/d/${driveId}/preview`}
+                                            style={{ width: '100%', height: '400px', border: 'none' }}
+                                            allow="autoplay; fullscreen"
+                                        ></iframe>
+                                    );
+                                }
+
+                                return null;
+                             })() || (
+                                ((selectedTask.postType && selectedTask.postType.includes && selectedTask.postType.includes('Video')) || selectedTask.postType === 'Reel' || (selectedTask.designUrl && typeof selectedTask.designUrl === 'string' && selectedTask.designUrl.match(/\.(mp4|mov)$/i))) ? (
+                                    <video src={selectedTask.designUrl} controls style={{ maxWidth: '100%', maxHeight: '500px' }} />
+                                ) : (
+                                    <img src={selectedTask.designUrl} alt="Full Preview" style={{ maxWidth: '100%', maxHeight: '500px', objectFit: 'contain' }} />
+                                )
                              )}
                         </div>
                    ) : (
                        <div style={{ padding: '2rem', textAlign: 'center', background: 'var(--bg-subtle)', border: '1px dashed var(--border)', borderRadius: '8px', color: 'var(--text-muted)' }}>
-                           No design updated yet.
+                                                   <div style={{ padding: '3.5rem 2rem', textAlign: 'center', background: 'var(--bg-subtle)', border: '2px dashed var(--border)', borderRadius: '16px', color: 'var(--text-muted)' }}>
+                            <div style={{ background: 'rgba(52, 152, 219, 0.05)', width: '64px', height: '64px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
+                                <Clock size={32} style={{ opacity: 0.5, color: '#3498db' }} />
+                            </div>
+                            <div style={{ fontWeight: 800, color: 'var(--text-main)', fontSize: '1.1rem', marginBottom: '8px' }}>Content in Production</div>
+                            <p style={{ fontSize: '0.85rem', maxWidth: '240px', margin: '0 auto', lineHeight: '1.5' }}>Our designers are currently working on your campaign assets. They will appear here once ready.</p>
+                        </div>
                        </div>
                    )}
                    {selectedTask.designUrl && (
