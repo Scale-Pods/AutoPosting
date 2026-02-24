@@ -566,7 +566,7 @@ export const dataService = {
 
   generateAICaption: async (id, campaignName, brief, designUrl, currentCaption = '', currentHashtags = '') => {
     try {
-        const payload = {
+        const params = new URLSearchParams({
             action: 'captiongen',
             id,
             campaignName,
@@ -574,18 +574,18 @@ export const dataService = {
             designUrl,
             currentCaption,
             currentHashtags
-        };
+        });
 
         const validUrl = import.meta.env.VITE_FETCH_ALL_WEBHOOK && import.meta.env.VITE_FETCH_ALL_WEBHOOK.startsWith('http') 
             ? import.meta.env.VITE_FETCH_ALL_WEBHOOK 
             : 'https://n8n.srv1010832.hstgr.cloud/webhook/Fetchall';
 
-        console.log('Requesting AI Caption from:', validUrl, payload);
+        const url = `${validUrl}?${params.toString()}`;
+        console.log('Requesting AI Caption from:', url);
 
-        const response = await fetch(validUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
         });
         
         if (response.ok) {
