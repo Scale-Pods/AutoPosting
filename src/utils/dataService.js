@@ -566,7 +566,7 @@ export const dataService = {
 
   generateAICaption: async (id, campaignName, brief, designUrl, currentCaption = '', currentHashtags = '') => {
     try {
-        const params = new URLSearchParams({
+        const payload = {
             action: 'captiongen',
             id,
             campaignName,
@@ -574,19 +574,18 @@ export const dataService = {
             designUrl,
             currentCaption,
             currentHashtags
-        });
+        };
 
         const validUrl = import.meta.env.VITE_FETCH_ALL_WEBHOOK && import.meta.env.VITE_FETCH_ALL_WEBHOOK.startsWith('http') 
             ? import.meta.env.VITE_FETCH_ALL_WEBHOOK 
             : 'https://n8n.srv1010832.hstgr.cloud/webhook/Fetchall';
 
-        const url = `${validUrl}?${params.toString()}`;
-        console.log('Requesting AI Caption from:', url);
+        console.log('Requesting AI Caption from:', validUrl, payload);
 
-        // Attempt to call n8n for real AI generation
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' }
+        const response = await fetch(validUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
         });
         
         if (response.ok) {
