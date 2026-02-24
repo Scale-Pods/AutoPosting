@@ -436,7 +436,7 @@ export const dataService = {
     return dataService.updateStatus(id, "Rejected", { feedback });
   },
 
-  approveDesign: async (id) => {
+  approveDesign: async (id, caption = null, hashtags = null) => {
     try {
       await fetch(import.meta.env.VITE_WEBHOOK_MAIN, {
         method: 'POST',
@@ -446,6 +446,8 @@ export const dataService = {
           action: 'Project Review',
           status: 'Approved',
           feedback: '',
+          caption: caption,
+          hashtags: hashtags,
           reviewedAt: new Date().toISOString()
         })
       });
@@ -562,14 +564,16 @@ export const dataService = {
     }
   },
 
-  generateAICaption: async (id, campaignName, brief, designUrl) => {
+  generateAICaption: async (id, campaignName, brief, designUrl, currentCaption = '', currentHashtags = '') => {
     try {
         const params = new URLSearchParams({
             action: 'captiongen',
             id,
             campaignName,
             brief,
-            designUrl
+            designUrl,
+            currentCaption,
+            currentHashtags
         });
 
         const validUrl = import.meta.env.VITE_FETCH_ALL_WEBHOOK && import.meta.env.VITE_FETCH_ALL_WEBHOOK.startsWith('http') 

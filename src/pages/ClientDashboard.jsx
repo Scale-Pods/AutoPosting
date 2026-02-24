@@ -71,15 +71,20 @@ const ClientDashboard = () => {
     fetchTasks(true);
   }, []);
 
-  const handleApprove = async (id) => {
+  const handleApprove = async (id, caption = null, hashtags = null) => {
     const task = tasks.find(t => t.id === id);
     if (!task) return;
 
     if (confirm(`Are you sure you want to approve "${task.campaignName || 'this campaign'}"?`)) {
         // Optimistic Update
-        setTasks(prev => prev.map(t => t.id === id ? { ...t, status: 'Approved' } : t));
+        setTasks(prev => prev.map(t => t.id === id ? { 
+            ...t, 
+            status: 'Approved',
+            caption: caption !== null ? caption : t.caption,
+            hashtags: hashtags !== null ? hashtags : t.hashtags
+        } : t));
         
-        await dataService.approveDesign(id);
+        await dataService.approveDesign(id, caption, hashtags);
         setReviewAction('Approved');
         setReviewCampaignName(task.campaignName || 'Campaign');
         setShowReviewSuccess(true);
@@ -89,6 +94,17 @@ const ClientDashboard = () => {
 
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
+
+    const today = new Date().toISOString().split('T')[0];
+    if (newCampaign.deadline < today) {
+        alert('Design Deadline cannot be in the past.');
+        return;
+    }
+    if (newCampaign.uploadDate && newCampaign.uploadDate < newCampaign.deadline) {
+        alert('Upload Date cannot be before the Design Deadline.');
+        return;
+    }
+
     const designerObj = designers.find(d => String(d.id) === String(newCampaign.designerId));
     
     // Create optimistic task object (temporary ID until confirmed)
@@ -534,7 +550,9 @@ const ClientDashboard = () => {
                                         selectedTask.id, 
                                         selectedTask.campaignName, 
                                         selectedTask.brief, 
-                                        selectedTask.designUrl
+                                        selectedTask.designUrl,
+                                        selectedTask.caption || '',
+                                        selectedTask.hashtags || ''
                                     );
                                     setSelectedTask(prev => ({...prev, caption, hashtags}));
                                     setGeneratingCaption(false);
@@ -802,7 +820,7 @@ const ClientDashboard = () => {
                             <X size={18} /> Reject & Give Feedback
                         </button>
                         <button 
-                            onClick={() => { handleApprove(selectedTask.id); setSelectedTask(null); setIsPreviewExpanded(false); }} 
+                            onClick={() => { handleApprove(selectedTask.id, selectedTask.caption, selectedTask.hashtags); setSelectedTask(null); setIsPreviewExpanded(false); }} 
                             className="btn btn-primary"
                             style={{ background: '#059669', border: 'none', borderRadius: '10px', padding: '0.75rem 2rem' }}
                         >
@@ -850,6 +868,7 @@ const ClientDashboard = () => {
                   <select 
                     value={newCampaign.postType || 'Static'} 
                     onChange={e => setNewCampaign({...newCampaign, postType: e.target.value})}
+                    required
                   >
                     <option value="Static">Static</option>
                     <option value="Carousel">Carousel</option>
@@ -862,17 +881,37 @@ const ClientDashboard = () => {
 
               <div>
                   <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Design Deadline</label>
-                  <input type="date" value={newCampaign.deadline} onChange={e => setNewCampaign({...newCampaign, deadline: e.target.value})} required />
+                  <input 
+                    type="date" 
+                    value={newCampaign.deadline} 
+                    onChange={e => {
+                      const newDeadline = e.target.value;
+                      setNewCampaign(prev => ({
+                        ...prev, 
+                        deadline: newDeadline,
+                        // Reset uploadDate if it's now before the new deadline
+                        uploadDate: prev.uploadDate && prev.uploadDate < newDeadline ? newDeadline : prev.uploadDate
+                      }));
+                    }} 
+                    min={new Date().toISOString().split('T')[0]}
+                    required 
+                  />
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Upload Date</label>
-                  <input type="date" value={newCampaign.uploadDate || ''} onChange={e => setNewCampaign({...newCampaign, uploadDate: e.target.value})} />
+                  <input 
+                    type="date" 
+                    value={newCampaign.uploadDate || ''} 
+                    onChange={e => setNewCampaign({...newCampaign, uploadDate: e.target.value})} 
+                    min={newCampaign.deadline || new Date().toISOString().split('T')[0]}
+                    required
+                  />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Upload Time</label>
-                  <input type="time" value={newCampaign.uploadTime || ''} onChange={e => setNewCampaign({...newCampaign, uploadTime: e.target.value})} />
+                  <input type="time" value={newCampaign.uploadTime || ''} onChange={e => setNewCampaign({...newCampaign, uploadTime: e.target.value})} required />
                 </div>
               </div>
 
