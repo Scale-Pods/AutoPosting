@@ -196,7 +196,7 @@ const ClientDashboard = () => {
           <p style={{ color: 'var(--text-muted)' }}>Track progress and approve designs.</p>
         </div>
         <button onClick={() => setIsModalOpen(true)} className="btn btn-primary">
-          <Plus size={20} /> Create Campaign
+          <Plus size={20} /> Create AD Campaign
         </button>
       </div>
 
@@ -836,7 +836,7 @@ const ClientDashboard = () => {
       {isModalOpen && (
         <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
           <div className="modal-content card" style={{ width: '100%', maxWidth: '500px', boxShadow: 'var(--shadow-xl)' }}>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '1.5rem', letterSpacing: '-0.025em' }}>Create New Campaign</h2>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '1.5rem', letterSpacing: '-0.025em' }}>Create New AD Campaign</h2>
             <form onSubmit={handleCreateSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Campaign Name</label>
@@ -916,7 +916,7 @@ const ClientDashboard = () => {
               </div>
 
               <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-                <button type="submit" className="btn btn-primary" style={{ flex: 1.5 }}>Create Campaign</button>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1.5 }}>Create AD Campaign</button>
                 <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-outline" style={{ flex: 1 }}>Cancel</button>
               </div>
             </form>
