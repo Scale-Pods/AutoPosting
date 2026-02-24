@@ -9,13 +9,15 @@ import {
   LogOut, 
   Menu,
   Bell,
+  BellRing,
   Palette,
   Briefcase,
   Sun,
   Moon,
   Settings,
   Magnet,
-  PanelLeft // Added
+  PanelLeft,
+  X
 } from 'lucide-react';
 import '../styles/global.css';
 import CalendarView from './CalendarView';
@@ -37,24 +39,89 @@ const SidebarItem = ({ to, icon: Icon, label, onClick, end = false }) => (
     })}
     onClick={onClick}
   >
-    <Icon size={20} />
-    <span style={{ marginLeft: '12px' }}>{label}</span>
+    <Icon size={20} className="mr-3" />
+    <span>{label}</span>
   </NavLink>
 );
 
 const DashboardLayout = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  // Initialize Sidebar state based on screen width
+  const userRole = user?.role;
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 768);
   const [isDark, setIsDark] = useState(false);
+  const [isLogoutHovered, setIsLogoutHovered] = useState(false);
   const [calendarTasks, setCalendarTasks] = useState([]);
+  const [calendarViewType, setCalendarViewType] = useState(user?.role?.toLowerCase() === 'client' ? 'uploadDate' : 'deadline'); 
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedDateTasks, setSelectedDateTasks] = useState([]);
-  const [isLogoutHovered, setIsLogoutHovered] = useState(false);
+  const [notifications, setNotifications] = useState(() => {
+    const saved = localStorage.getItem('mw_notifications');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [showNotifications, setShowNotifications] = useState(false);
 
-  // Robust role check
-  const userRole = (user?.role || '').toLowerCase();
+  useEffect(() => {
+    localStorage.setItem('mw_notifications', JSON.stringify(notifications));
+  }, [notifications]);
+
+  const fetchAndCheckUpdates = async () => {
+    if (!user) return;
+    const newTasks = await dataService.getTasks();
+    if (!newTasks || newTasks.length === 0) return;
+
+    const lastState = JSON.parse(localStorage.getItem('last_tasks_state') || '[]');
+    const newNotes = [];
+    const role = (user.role || '').toLowerCase();
+
+    newTasks.forEach(task => {
+        const oldTask = lastState.find(t => t.id === task.id);
+        
+        if (role === 'client') {
+            if (task.status === 'Design Uploaded' && (!oldTask || oldTask.status !== 'Design Uploaded')) {
+                newNotes.push({
+                    id: `note-${Date.now()}-${task.id}`,
+                    title: 'Design Uploaded',
+                    message: `New design ready for ${task.campaignName}`,
+                    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    read: false,
+                    taskId: task.id
+                });
+            }
+        } else if (role === 'designer') {
+            if (!oldTask) {
+                newNotes.push({
+                    id: `note-${Date.now()}-${task.id}`,
+                    title: 'New Campaign Assigned',
+                    message: `You have been assigned to ${task.campaignName}`,
+                    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    read: false,
+                    taskId: task.id
+                });
+            }
+        }
+    });
+
+    if (newNotes.length > 0) {
+        setNotifications(prev => {
+            // Avoid duplicate notifications for the same event
+            const filteredNew = newNotes.filter(n => !prev.some(p => p.taskId === n.taskId && p.title === n.title));
+            return [...filteredNew, ...prev].slice(0, 20);
+        });
+    }
+
+    setCalendarTasks(newTasks);
+    localStorage.setItem('last_tasks_state', JSON.stringify(newTasks));
+  };
+
+  useEffect(() => {
+    if (user) {
+        fetchAndCheckUpdates();
+        const interval = setInterval(fetchAndCheckUpdates, 30000); 
+        return () => clearInterval(interval);
+    }
+  }, [user]);
 
   useEffect(() => {
     // Check local storage for theme
@@ -68,7 +135,7 @@ const DashboardLayout = () => {
     if (userRole === 'client' || userRole === 'designer') {
         dataService.getTasks().then(setCalendarTasks);
     }
-  }, [user]);
+  }, [user, userRole]);
 
   const toggleTheme = () => {
     if (isDark) {
@@ -162,13 +229,64 @@ const DashboardLayout = () => {
            {(userRole === 'client' || userRole === 'designer') && (
               <>
                 <div style={{ marginBottom: '1rem' }}>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase' }}>
-                        {userRole === 'client' ? 'Upload Schedule' : 'Deadlines'}
+                    <div style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center', 
+                        marginBottom: '8px',
+                        paddingRight: '4px'
+                    }}>
+                        <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                            {calendarViewType === 'uploadDate' ? 'Upload Schedule' : 'Deadlines'}
+                        </div>
+                        
+                        {userRole === 'client' && (
+                            <div style={{ 
+                                display: 'flex', 
+                                background: 'var(--bg-body)', 
+                                borderRadius: '12px', 
+                                padding: '2px',
+                                border: '1px solid var(--border)'
+                            }}>
+                                <button 
+                                    onClick={() => setCalendarViewType('uploadDate')}
+                                    style={{
+                                        fontSize: '0.65rem',
+                                        padding: '2px 6px',
+                                        borderRadius: '10px',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        background: calendarViewType === 'uploadDate' ? 'var(--primary)' : 'transparent',
+                                        color: calendarViewType === 'uploadDate' ? 'white' : 'var(--text-muted)',
+                                        transition: 'all 0.2s'
+                                    }}
+                                    title="Show Upload Dates"
+                                >
+                                    Upload
+                                </button>
+                                <button 
+                                    onClick={() => setCalendarViewType('deadline')}
+                                    style={{
+                                        fontSize: '0.65rem',
+                                        padding: '2px 6px',
+                                        borderRadius: '10px',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        background: calendarViewType === 'deadline' ? 'var(--primary)' : 'transparent',
+                                        color: calendarViewType === 'deadline' ? 'white' : 'var(--text-muted)',
+                                        transition: 'all 0.2s'
+                                    }}
+                                    title="Show Deadlines"
+                                >
+                                    Deadlines
+                                </button>
+                            </div>
+                        )}
                     </div>
                     <CalendarView 
                         tasks={calendarTasks} 
                         compact={true} 
-                        dateKey={userRole === 'client' ? 'uploadDate' : 'deadline'} // Use uploadDate for clients, deadline for designers
+                        dateKey={calendarViewType} 
                         onDateClick={(date, dayTasks) => {
                             setSelectedDate(date);
                             setSelectedDateTasks(dayTasks);
@@ -290,17 +408,116 @@ const DashboardLayout = () => {
                 {isDark ? <Sun size={20} /> : <Moon size={20} />}
              </button>
 
-             <button style={{ position: 'relative', color: 'var(--text-muted)' }}>
-               <Bell size={20} />
-               <span style={{ position: 'absolute', top: -2, right: -2, width: 8, height: 8, background: 'red', borderRadius: '50%' }}></span>
-             </button>
+             <div style={{ position: 'relative' }}>
+               <button 
+                 onClick={() => setShowNotifications(!showNotifications)}
+                 style={{ 
+                    position: 'relative', 
+                    color: showNotifications ? 'var(--primary)' : 'var(--text-muted)', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    background: showNotifications ? 'var(--primary-light)' : 'none', 
+                    border: 'none', 
+                    cursor: 'pointer',
+                    padding: '8px',
+                    borderRadius: '50%',
+                    transition: 'all 0.2s'
+                 }}
+                 title="Notifications"
+               >
+                 {notifications.some(n => !n.read) ? <BellRing size={20} /> : <Bell size={20} />}
+                 {notifications.some(n => !n.read) && (
+                   <span style={{ position: 'absolute', top: 6, right: 6, width: 8, height: 8, background: 'var(--primary)', border: '2px solid var(--bg-card)', borderRadius: '50%' }}></span>
+                 )}
+               </button>
+
+               {showNotifications && (
+                 <>
+                   {/* Click away overlay */}
+                   <div 
+                     onClick={() => setShowNotifications(false)} 
+                     style={{ position: 'fixed', inset: 0, zIndex: 90 }} 
+                   />
+                   
+                   <div style={{ 
+                       position: 'absolute', top: '100%', right: 0, marginTop: '12px', width: '320px', 
+                       background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', 
+                       boxShadow: 'var(--shadow-lg)', zIndex: 100, overflow: 'hidden',
+                       animation: 'slideDown 0.2s ease-out'
+                   }}>
+                     <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-subtle)' }}>
+                       <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>Notifications</span>
+                       {notifications.some(n => !n.read) && (
+                         <button 
+                           onClick={() => setNotifications(notifications.map(n => ({...n, read: true})))} 
+                           style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer' }}
+                         >
+                           Mark all read
+                         </button>
+                       )}
+                     </div>
+                     <div style={{ maxHeight: '360px', overflowY: 'auto' }}>
+                       {notifications.length === 0 ? (
+                           <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                               <Bell size={32} style={{ marginBottom: '12px', opacity: 0.3 }} />
+                               <p>No notifications yet.</p>
+                           </div>
+                       ) : (
+                           notifications.map(n => (
+                               <div 
+                                   key={n.id} 
+                                   style={{ 
+                                       padding: '12px 16px', borderBottom: '1px solid var(--border)', cursor: 'pointer',
+                                       background: n.read ? 'transparent' : 'var(--primary-light)',
+                                       display: 'flex', flexDirection: 'column', gap: '4px',
+                                       transition: 'background 0.2s'
+                                   }}
+                                   onClick={() => {
+                                       setNotifications(notifications.map(note => note.id === n.id ? {...note, read: true} : note));
+                                       setShowNotifications(false);
+                                       if (n.taskId) {
+                                           // Find the task in calendarTasks to potentially open modal
+                                           const task = calendarTasks.find(t => t.id === n.taskId);
+                                           if (task) {
+                                               setSelectedDate(task.uploadDate || task.deadline);
+                                               setSelectedDateTasks([task]);
+                                           }
+                                       }
+                                   }}
+                               >
+                                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: '8px' }}>
+                                       <span style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                           {!n.read && <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--primary)' }}></span>}
+                                           {n.title}
+                                       </span>
+                                       <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{n.time}</span>
+                                   </div>
+                                   <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>{n.message}</span>
+                               </div>
+                           ))
+                       )}
+                     </div>
+                     {notifications.length > 0 && (
+                        <div style={{ padding: '8px', textAlign: 'center', background: 'var(--bg-subtle)', borderTop: '1px solid var(--border)' }}>
+                            <button 
+                                onClick={() => setNotifications([])}
+                                style={{ fontSize: '0.75rem', color: 'var(--status-rejected)', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer' }}
+                            >
+                                Clear all
+                            </button>
+                        </div>
+                     )}
+                   </div>
+                 </>
+               )}
+             </div>
 
            </div>
         </header>
 
         {/* Page Content */}
         <main style={{ padding: '1.5rem', flex: 1, overflowY: 'auto' }}>
-           <Outlet />
+           <Outlet context={{ refreshCalendar: fetchAndCheckUpdates }} />
         </main>
       {/* Date Details Modal (Global) */}
       {selectedDate && (
@@ -317,11 +534,18 @@ const DashboardLayout = () => {
                  </div>
               ) : (
                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    {selectedDateTasks.map(task => (
+                     {selectedDateTasks.map(task => (
                         <div key={task.id} style={{ padding: '0.75rem', border: '1px solid var(--border)', borderRadius: '8px', background: 'var(--bg-body)' }}>
-                            <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{task.campaignName}</div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{task.status}</div>
-                            {task.designerName && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Designer: {task.designerName}</div>}
+                            <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: '4px' }}>{task.campaignName}</div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                <span style={{ fontSize: '0.75rem', padding: '2px 6px', borderRadius: '4px', background: 'var(--primary-light)', color: 'var(--primary)', fontWeight: 600 }}>{task.status}</span>
+                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{task.postType}</span>
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                <strong>{calendarViewType === 'uploadDate' ? 'Upload' : 'Deadline'}:</strong> {task[calendarViewType]} 
+                                {calendarViewType === 'uploadDate' && task.uploadTime && ` at ${task.uploadTime}`}
+                            </div>
+                            {task.designerName && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>Designer: {task.designerName}</div>}
                         </div>
                     ))}
                  </div>

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import { dataService } from '../utils/dataService';
 import { Check, X, Plus, Trash2, Clock, Calendar, Maximize2, Minimize2, ExternalLink, ZoomIn, ZoomOut } from 'lucide-react';
 import LoadingScreen from '../components/LoadingScreen';
@@ -8,20 +9,32 @@ const StatusBadge = ({ status }) => {
   return <span className={`badge status-${normalized}`}>{status}</span>;
 };
 
+const extractDriveId = (url) => {
+  if (!url || typeof url !== 'string') return null;
+  const match = url.match(/\/d\/([^/]+)/) || url.match(/id=([^&]+)/) || url.match(/\/folders\/([^/?]+)/);
+  return match ? match[1] : null;
+};
+
 const ClientDashboard = () => {
+  const { refreshCalendar } = useOutletContext();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [reviewingId, setReviewingId] = useState(null);
   const [comment, setComment] = useState('');
   const [activePreviewId, setActivePreviewId] = useState(null);
+  const [showThumbnailPreview, setShowThumbnailPreview] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null); // [NEW] Task Details Modal
   const [generatingCaption, setGeneratingCaption] = useState(false); // [NEW]
   const [isPreviewExpanded, setIsPreviewExpanded] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [showReviewSuccess, setShowReviewSuccess] = useState(false);
+  const [reviewAction, setReviewAction] = useState(''); // 'Approved' or 'Rejected'
+  const [reviewCampaignName, setReviewCampaignName] = useState('');
 
   useEffect(() => {
     if (!selectedTask) {
       setZoomLevel(1);
+      setShowThumbnailPreview(false);
     }
   }, [selectedTask]);
 
@@ -59,13 +72,18 @@ const ClientDashboard = () => {
   }, []);
 
   const handleApprove = async (id) => {
-    if (confirm('Are you sure you want to approve this design?')) {
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
+
+    if (confirm(`Are you sure you want to approve "${task.campaignName || 'this campaign'}"?`)) {
         // Optimistic Update
         setTasks(prev => prev.map(t => t.id === id ? { ...t, status: 'Approved' } : t));
         
         await dataService.approveDesign(id);
-        // Background fetch to sync
-        fetchTasks(false);
+        setReviewAction('Approved');
+        setReviewCampaignName(task.campaignName || 'Campaign');
+        setShowReviewSuccess(true);
+        if (refreshCalendar) refreshCalendar();
     }
   };
 
@@ -111,6 +129,7 @@ const ClientDashboard = () => {
 
     // Show Success Modal
     setShowSuccessModal(true);
+    if (refreshCalendar) refreshCalendar();
   };
 
   const handleSuccessClose = () => {
@@ -123,6 +142,7 @@ const ClientDashboard = () => {
       setTasks(prev => prev.filter(t => t.id !== id)); // Optimistic delete
       await dataService.deleteTask(id, campaignName);
       fetchTasks(false);
+      if (refreshCalendar) refreshCalendar();
     }
   };
 
@@ -134,11 +154,20 @@ const ClientDashboard = () => {
     setTasks(prev => prev.map(t => t.id === reviewingId ? { ...t, status: 'Rejected', feedback: comment } : t));
     
     const idToReject = reviewingId;
+    const task = tasks.find(t => t.id === idToReject);
     setReviewingId(null);
     setComment('');
-
+    
     await dataService.rejectDesign(idToReject, comment);
-    fetchTasks(false);
+    setReviewAction('Rejected');
+    setReviewCampaignName(task ? task.campaignName : 'Campaign');
+    setShowReviewSuccess(true);
+    if (refreshCalendar) refreshCalendar();
+  };
+
+  const handleReviewSuccessClose = () => {
+    setShowReviewSuccess(false);
+    fetchTasks(true);
   };
 
   if (loading) return <LoadingScreen />;
@@ -232,20 +261,16 @@ const ClientDashboard = () => {
                         {/* Design Preview Area */}
                         
                         {(() => {
-                            const extractDriveId = (url) => {
-                                if (!url || typeof url !== 'string') return null;
-                                const match = url.match(/\/d\/([^/]+)/) || url.match(/id=([^&]+)/) || url.match(/\/folders\/([^/?]+)/);
-                                return match ? match[1] : null;
-                            };
-
                             // Prioritize thumbnailUrl for card preview
                             const thumbId = extractDriveId(task.thumbnailUrl);
                             const designId = extractDriveId(task.designUrl);
-                            const driveId = thumbId || designId;
-
+                            
                             const isFolder = task.designUrl && typeof task.designUrl === 'string' && task.designUrl.includes('/folders/');
                             const isVertical = task.postType === 'Reel' || task.postType === 'Story (Reel)';
                             const isVideoType = isVertical || (task.postType && task.postType.includes && task.postType.includes('Video'));
+                            
+                            // Use thumbnail if available, otherwise use design if not a folder
+                            const driveId = thumbId || (!isFolder ? designId : null);
                             
                             // Use 1/1 for cards if not vertical to keep grid clean
                             const containerRatio = isVertical ? '9/16' : '1/1';
@@ -262,15 +287,15 @@ const ClientDashboard = () => {
                                         justifyContent: 'center',
                                         overflow: 'hidden',
                                         position: 'relative',
-                                        border: task.designUrl ? '1px solid var(--border)' : '1px dashed var(--border)',
+                                        border: (task.designUrl || task.thumbnailUrl) ? '1px solid var(--border)' : '1px dashed var(--border)',
                                         background: '#000', // Black background for videos/images to avoid grey
                                         boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)'
                                     }}>
-                                        {task.designUrl ? (
+                                        {(task.designUrl || task.thumbnailUrl) ? (
                                             <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-                                                {driveId || (task.thumbnailUrl && task.thumbnailUrl.startsWith('http')) ? (
+                                                {(driveId || (task.thumbnailUrl && task.thumbnailUrl.startsWith('http'))) ? (
                                                     <img 
-                                                        src={driveId ? `https://drive.google.com/thumbnail?id=${driveId}&sz=w1200` : task.thumbnailUrl}
+                                                        src={thumbId ? `https://drive.google.com/thumbnail?id=${thumbId}&sz=w1200` : (designId && !isFolder ? `https://drive.google.com/thumbnail?id=${designId}&sz=w1200` : task.thumbnailUrl)}
                                                         alt="Design Preview"
                                                         style={{ 
                                                             width: '100%', 
@@ -312,7 +337,7 @@ const ClientDashboard = () => {
                                                 )}
                                                 
                                                 {/* Play Overlay for Videos */}
-                                                {isVideoType && (
+                                                {isVideoType && !thumbId && (
                                                     <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.2)' }}>
                                                         <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(255,255,255,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000' }}>
                                                             <Check size={20} /> {/* Simple indicator */}
@@ -559,7 +584,10 @@ const ClientDashboard = () => {
                             onClick={async () => {
                                 const success = await dataService.updateCaption(selectedTask.id, selectedTask.caption, selectedTask.hashtags);
                                 if (success) {
-                                    alert('Caption and Hashtags saved and sent!');
+                                    setReviewAction('Saved');
+                                    setReviewCampaignName(selectedTask.campaignName || 'Campaign');
+                                    setShowReviewSuccess(true);
+                                    setSelectedTask(null);
                                 } else {
                                     alert('Failed to save.');
                                 }
@@ -576,19 +604,37 @@ const ClientDashboard = () => {
                <div style={{ display: 'flex', flexDirection: 'column' }}>
                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                            <label style={{ textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>Asset Preview</label>
-                            {selectedTask.designUrl && !selectedTask.designUrl.includes('drive.google.com') && (
+                            <label style={{ textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>
+                                {showThumbnailPreview ? 'Thumbnail Preview' : 'Asset Preview'}
+                            </label>
+                            {selectedTask.designUrl && !selectedTask.designUrl.includes('drive.google.com') && !showThumbnailPreview && (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--bg-subtle)', padding: '2px 8px', borderRadius: '8px', border: '1px solid var(--border)' }}>
                                     <button onClick={() => setZoomLevel(prev => Math.max(0.5, prev - 0.25))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-main)', padding: '4px' }} title="Zoom Out"><ZoomOut size={16} /></button>
                                     <span style={{ fontSize: '0.75rem', fontWeight: 700, minWidth: '40px', textAlign: 'center' }}>{Math.round(zoomLevel * 100)}%</span>
                                     <button onClick={() => setZoomLevel(prev => Math.min(3, prev + 0.25))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-main)', padding: '4px' }} title="Zoom In"><ZoomIn size={16} /></button>
                                 </div>
                             )}
+                            {selectedTask.thumbnailUrl && (
+                                <button 
+                                    onClick={() => setShowThumbnailPreview(!showThumbnailPreview)}
+                                    className="btn btn-ghost btn-sm"
+                                    style={{ 
+                                        fontSize: '0.7rem', 
+                                        background: showThumbnailPreview ? 'var(--primary)' : 'var(--primary-light)', 
+                                        color: showThumbnailPreview ? 'white' : 'var(--primary)',
+                                        borderRadius: '8px',
+                                        padding: '4px 10px',
+                                        fontWeight: 700
+                                    }}
+                                >
+                                    {showThumbnailPreview ? 'Show Main Design' : 'View Thumbnail'}
+                                </button>
+                            )}
                         </div>
                         {selectedTask.designUrl && (
-                            <a href={selectedTask.designUrl} target="_blank" rel="noopener noreferrer" 
+                            <a href={showThumbnailPreview ? selectedTask.thumbnailUrl : selectedTask.designUrl} target="_blank" rel="noopener noreferrer" 
                                style={{ color: 'var(--primary)', fontSize: '0.75rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}>
-                                Open Full Size <ExternalLink size={14} />
+                                {showThumbnailPreview ? 'Open Thumbnail ↗' : 'Open Full Size ↗'} <ExternalLink size={14} />
                             </a>
                         )}
                    </div>
@@ -602,6 +648,16 @@ const ClientDashboard = () => {
                             position: 'relative'
                         }}>
                              {(() => {
+                                 if (showThumbnailPreview && selectedTask.thumbnailUrl) {
+                                     const thumbId = extractDriveId(selectedTask.thumbnailUrl);
+                                     const thumbSrc = thumbId ? `https://drive.google.com/file/d/${thumbId}/preview` : selectedTask.thumbnailUrl;
+                                     
+                                     if (thumbId) {
+                                         return <iframe title="Thumbnail Preview" src={thumbSrc} style={{ width: '100%', height: isPreviewExpanded ? '750px' : '550px', border: 'none' }}></iframe>;
+                                     }
+                                     return <img src={thumbSrc} alt="Thumbnail" style={{ maxWidth: '100%', maxHeight: isPreviewExpanded ? '750px' : '500px', objectFit: 'contain' }} />;
+                                 }
+
                                  const url = selectedTask.designUrl;
                                  
                                  if (url && typeof url === 'string' && url.includes(' (Uploaded)')) {
@@ -757,67 +813,68 @@ const ClientDashboard = () => {
       )}
       {/* Modal */}
       {isModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
-          <div className="card" style={{ width: '100%', maxWidth: '500px' }}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem' }}>Create New Campaign</h2>
-            <form onSubmit={handleCreateSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+          <div className="modal-content card" style={{ width: '100%', maxWidth: '500px', boxShadow: 'var(--shadow-xl)' }}>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '1.5rem', letterSpacing: '-0.025em' }}>Create New Campaign</h2>
+            <form onSubmit={handleCreateSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '4px' }}>Campaign Name / Brief Title</label>
-                <input type="text" value={newCampaign.campaignName} onChange={e => setNewCampaign({...newCampaign, campaignName: e.target.value})} placeholder="e.g. Summer Launch" style={{ width: '100%' }} />
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Campaign Name</label>
+                <input type="text" value={newCampaign.campaignName} onChange={e => setNewCampaign({...newCampaign, campaignName: e.target.value})} placeholder="e.g. Summer Launch 2026" required />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '4px' }}>Brief Details</label>
-                <textarea value={newCampaign.brief} onChange={e => setNewCampaign({...newCampaign, brief: e.target.value})} rows="3" placeholder="Describe the requirements..." style={{ width: '100%' }}></textarea>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '4px' }}>Assign Designer</label>
-                <select 
-                    value={newCampaign.designerId} 
-                    onChange={e => setNewCampaign({...newCampaign, designerId: e.target.value})} 
-                    style={{ width: '100%' }}
-                >
-                    <option value="">-- Select a Designer --</option>
-                    {designers.map(d => (
-                        <option key={d.id} value={d.id}>{d.name} ({d.email})</option>
-                    ))}
-                </select>
-              </div>
-
-              <div>
-                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '4px' }}>Post Type</label>
-                <select 
-                  value={newCampaign.postType || 'Static'} 
-                  onChange={e => setNewCampaign({...newCampaign, postType: e.target.value})}
-                  style={{ width: '100%' }}
-                >
-                  <option value="Static">Static</option>
-                  <option value="Carousel">Carousel</option>
-                  <option value="Reel">Reel</option>
-                  <option value="Story (Image)">Story (Image)</option>
-                  <option value="Story (Reel)">Story (Reel)</option>
-                </select>
-              </div>
-
-              <div>
-                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '4px' }}>Design Deadline</label>
-                  <input type="date" value={newCampaign.deadline} onChange={e => setNewCampaign({...newCampaign, deadline: e.target.value})} style={{ width: '100%' }} />
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Brief Details</label>
+                <textarea value={newCampaign.brief} onChange={e => setNewCampaign({...newCampaign, brief: e.target.value})} rows="4" placeholder="What are the design requirements?" required></textarea>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '4px' }}>Upload Date</label>
-                  <input type="date" value={newCampaign.uploadDate || ''} onChange={e => setNewCampaign({...newCampaign, uploadDate: e.target.value})} style={{ width: '100%' }} />
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Assign Designer</label>
+                  <select 
+                      value={newCampaign.designerId} 
+                      onChange={e => setNewCampaign({...newCampaign, designerId: e.target.value})} 
+                      required
+                  >
+                      <option value="">Select Designer</option>
+                      {designers.map(d => (
+                          <option key={d.id} value={d.id}>{d.name}</option>
+                      ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Post Type</label>
+                  <select 
+                    value={newCampaign.postType || 'Static'} 
+                    onChange={e => setNewCampaign({...newCampaign, postType: e.target.value})}
+                  >
+                    <option value="Static">Static</option>
+                    <option value="Carousel">Carousel</option>
+                    <option value="Reel">Reel</option>
+                    <option value="Story (Image)">Story (Image)</option>
+                    <option value="Story (Reel)">Story (Reel)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Design Deadline</label>
+                  <input type="date" value={newCampaign.deadline} onChange={e => setNewCampaign({...newCampaign, deadline: e.target.value})} required />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Upload Date</label>
+                  <input type="date" value={newCampaign.uploadDate || ''} onChange={e => setNewCampaign({...newCampaign, uploadDate: e.target.value})} />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '4px' }}>Upload Time</label>
-                  <input type="time" value={newCampaign.uploadTime || ''} onChange={e => setNewCampaign({...newCampaign, uploadTime: e.target.value})} style={{ width: '100%' }} />
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Upload Time</label>
+                  <input type="time" value={newCampaign.uploadTime || ''} onChange={e => setNewCampaign({...newCampaign, uploadTime: e.target.value})} />
                 </div>
               </div>
 
               <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-                <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Create Campaign</button>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1.5 }}>Create Campaign</button>
                 <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-outline" style={{ flex: 1 }}>Cancel</button>
               </div>
             </form>
@@ -827,8 +884,8 @@ const ClientDashboard = () => {
 
       {/* Success Modal */}
       {showSuccessModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 110 }}>
-            <div className="card" style={{ width: '100%', maxWidth: '400px', textAlign: 'center', padding: '2rem' }}>
+        <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 110 }}>
+            <div className="modal-content card" style={{ width: '100%', maxWidth: '400px', textAlign: 'center', padding: '2.5rem' }}>
                 <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--status-approved)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
                     <Check size={24} />
                 </div>
@@ -849,6 +906,42 @@ const ClientDashboard = () => {
 
       {/* Rejection Modal Modal - renamed for clarity but keeping structure same as previous `reviewingId` block if it was outside */ }
       {/* Rejection Modal is below */ }
+
+      {/* Review Success Modal */}
+      {showReviewSuccess && (
+        <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 110 }}>
+            <div className="modal-content card" style={{ width: '100%', maxWidth: '400px', textAlign: 'center', padding: '2.5rem' }}>
+                <div style={{ 
+                    width: 56, 
+                    height: 56, 
+                    borderRadius: '50%', 
+                    background: reviewAction === 'Approved' ? 'var(--status-approved)' : (reviewAction === 'Saved' ? 'var(--primary)' : 'var(--status-rejected)'), 
+                    color: 'white', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    margin: '0 auto 1.5rem',
+                    boxShadow: reviewAction === 'Approved' ? '0 8px 16px -4px rgba(16, 185, 129, 0.4)' : (reviewAction === 'Saved' ? '0 8px 16px -4px rgba(159, 212, 138, 0.4)' : '0 8px 16px -4px rgba(239, 68, 68, 0.4)')
+                }}>
+                    {reviewAction === 'Rejected' ? <X size={28} /> : <Check size={28} />}
+                </div>
+                <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.75rem', letterSpacing: '-0.025em' }}>
+                    {reviewAction === 'Saved' ? 'Content Saved!' : `Campaign ${reviewAction}!`}
+                </h3>
+                <p style={{ color: 'var(--text-muted)', marginBottom: '2rem', lineHeight: 1.6 }}>
+                    <strong>{reviewCampaignName}</strong> {reviewAction === 'Saved' ? 'content has been updated successfully.' : `has been ${reviewAction.toLowerCase()}.`}
+                    {reviewAction === 'Approved' ? ' The design is ready for the next steps.' : (reviewAction === 'Rejected' ? ' The designer will be notified of your feedback.' : '')}
+                </p>
+                <button 
+                    onClick={handleReviewSuccessClose} 
+                    className="btn btn-primary" 
+                    style={{ width: '100%', padding: '1rem', borderRadius: '14px', fontWeight: 700, fontSize: '1rem' }}
+                >
+                    OK
+                </button>
+            </div>
+        </div>
+      )}
 
       {/* Rejection Modal */}
       {reviewingId && (

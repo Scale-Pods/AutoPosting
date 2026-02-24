@@ -94,10 +94,10 @@ const Login = () => {
         maxWidth: '440px', 
         padding: '2.5rem',
         borderRadius: '24px',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-        background: 'rgba(255, 255, 255, 0.95)',
+        boxShadow: 'var(--shadow-xl)',
+        background: 'var(--bg-card)',
         backdropFilter: 'blur(10px)',
-        border: '1px solid rgba(255, 255, 255, 0.2)'
+        border: '1px solid var(--border)'
       }}>
         <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
           <div>
@@ -110,11 +110,11 @@ const Login = () => {
                 height: 'auto', 
                 margin: '0 auto', 
                 display: 'block',
-                filter: 'invert(1)'
+                filter: 'var(--logo-filter)' // Uses the same filter logic for theme reversal
               }}
              />
           </div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: '0.75rem', letterSpacing: '-0.025em', color: '#1E293B', marginTop: '-10px' }}>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: '0.75rem', letterSpacing: '-0.025em', color: 'var(--text-main)', marginTop: '-10px' }}>
             {isResetting ? 'Secure Account' : (showSuccess ? 'Victory!' : 'Welcome Back')}
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: 1.5 }}>
@@ -177,9 +177,9 @@ const Login = () => {
             {!isResetting ? (
               <>
                   <div>
-                      <label style={{ display: 'block', marginBottom: '0.6rem', fontSize: '0.9rem', fontWeight: 600, color: '#475569' }}>Email or Username</label>
+                      <label style={{ display: 'block', marginBottom: '0.6rem', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-main)' }}>Email or Username</label>
                       <div style={{ position: 'relative' }}>
-                        <User size={18} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
+                        <User size={18} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                         <input 
                             type="text" 
                             value={username} 
@@ -190,7 +190,9 @@ const Login = () => {
                                 padding: '0.8rem 0.8rem 0.8rem 42px', 
                                 height: 'auto',
                                 borderRadius: '12px',
-                                border: '1.5px solid #E2E8F0',
+                                border: '1.5px solid var(--border)',
+                                background: 'var(--bg-body)',
+                                color: 'var(--text-main)',
                                 fontSize: '0.95rem',
                                 transition: 'all 0.2s ease'
                             }}
@@ -199,9 +201,9 @@ const Login = () => {
                   </div>
 
                   <div>
-                      <label style={{ display: 'block', marginBottom: '0.6rem', fontSize: '0.9rem', fontWeight: 600, color: '#475569' }}>Password</label>
+                      <label style={{ display: 'block', marginBottom: '0.6rem', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-main)' }}>Password</label>
                       <div style={{ position: 'relative' }}>
-                        <Lock size={18} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
+                        <Lock size={18} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                         <input 
                             type="password" 
                             value={password} 
@@ -212,14 +214,16 @@ const Login = () => {
                                 padding: '0.8rem 0.8rem 0.8rem 42px',
                                 height: 'auto',
                                 borderRadius: '12px',
-                                border: '1.5px solid #E2E8F0',
+                                border: '1.5px solid var(--border)',
+                                background: 'var(--bg-body)',
+                                color: 'var(--text-main)',
                                 fontSize: '0.95rem'
                             }}
                         />
                       </div>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0', cursor: 'pointer' }} onClick={() => setChangeAfterLogin(!changeAfterLogin)}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: 'var(--bg-body)', borderRadius: '12px', border: '1px solid var(--border)', cursor: 'pointer' }} onClick={() => setChangeAfterLogin(!changeAfterLogin)}>
                       <input 
                           type="checkbox" 
                           id="updatePass" 
@@ -227,7 +231,7 @@ const Login = () => {
                           onChange={(e) => setChangeAfterLogin(e.target.checked)}
                           style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--primary)' }}
                       />
-                      <label htmlFor="updatePass" style={{ fontSize: '0.85rem', color: '#64748B', fontWeight: 500, cursor: 'pointer', userSelect: 'none' }}>
+                      <label htmlFor="updatePass" style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500, cursor: 'pointer', userSelect: 'none' }}>
                           Update Password after login
                       </label>
                   </div>
@@ -261,9 +265,9 @@ const Login = () => {
                   </div>
                   
                   <div style={{ marginBottom: '1.5rem' }}>
-                      <label style={{ display: 'block', marginBottom: '0.6rem', fontSize: '0.9rem', fontWeight: 600, color: '#475569' }}>New Workspace Password</label>
+                      <label style={{ display: 'block', marginBottom: '0.6rem', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-main)' }}>New Workspace Password</label>
                       <div style={{ position: 'relative' }}>
-                        <Lock size={18} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
+                        <Lock size={18} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                         <input 
                             type="password" 
                             value={newPassword} 
@@ -312,15 +316,15 @@ const Login = () => {
         <div style={{ 
             marginTop: '2.5rem', 
             paddingTop: '1.5rem', 
-            borderTop: '1px solid #F1F5F9', 
+            borderTop: '1px solid var(--border)', 
             fontSize: '0.8rem', 
-            color: '#94A3B8', 
+            color: 'var(--text-muted)', 
             textAlign: 'center' 
         }}>
           <p style={{ marginBottom: '0.75rem', fontWeight: 500 }}>Global Access Points</p>
           <div style={{ display: 'flex', justifyContent: 'center', gap: '1.25rem' }}>
-            <span style={{ padding: '4px 10px', background: '#F8FAFC', borderRadius: '6px', border: '1px solid #E2E8F0' }}>Designer Access</span>
-            <span style={{ padding: '4px 10px', background: '#F8FAFC', borderRadius: '6px', border: '1px solid #E2E8F0' }}>Client Portal</span>
+            <span style={{ padding: '4px 10px', background: 'var(--bg-body)', borderRadius: '6px', border: '1px solid var(--border)' }}>Designer Access</span>
+            <span style={{ padding: '4px 10px', background: 'var(--bg-body)', borderRadius: '6px', border: '1px solid var(--border)' }}>Client Portal</span>
           </div>
         </div>
       </div>

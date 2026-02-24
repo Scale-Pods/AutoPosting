@@ -45,6 +45,13 @@
   --bg-info-subtle: #F0FDF4;
   --text-info-header: #15803D;
   --text-info-body: #16A34A;
+
+  /* Icon Filters */
+  --calendar-icon-filter: none;
+  --logo-filter: invert(1);
+  
+  /* Extra Shadows */
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
 body.dark {
@@ -85,4 +92,11 @@ body.dark {
   --bg-info-subtle: #052e16;
   --text-info-header: #9FD48A;
   --text-info-body: #88BE74;
+
+  /* Icon Filters */
+  --calendar-icon-filter: invert(1);
+  --logo-filter: none;
+
+  /* Extra Shadows */
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
 }

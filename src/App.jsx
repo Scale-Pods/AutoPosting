@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useOutletContext } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import DashboardLayout from './components/DashboardLayout';
 import Login from './pages/Login';
@@ -12,6 +12,7 @@ import './styles/global.css';
 // Protected Route Component
 const ProtectedRoute = ({ allowedRoles }) => {
   const { user } = useAuth();
+  const context = useOutletContext();
   
   if (!user) {
     return <Navigate to="/login" replace />;
@@ -25,7 +26,7 @@ const ProtectedRoute = ({ allowedRoles }) => {
     return <Navigate to={userRole === 'designer' ? '/designer' : '/client'} replace />;
   }
   
-  return <Outlet />;
+  return <Outlet context={context} />;
 };
 
 // Placeholders for now
@@ -37,6 +38,15 @@ const Placeholder = ({ title }) => (
 );
 
 function App() {
+  React.useEffect(() => {
+    const savedTheme = localStorage.getItem('mw_theme');
+    if (savedTheme === 'dark') {
+      document.body.classList.add('dark');
+    } else {
+      document.body.classList.remove('dark');
+    }
+  }, []);
+
   return (
     <Router>
       <AuthProvider>

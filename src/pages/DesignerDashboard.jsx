@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import { dataService } from '../utils/dataService';
 import { UploadCloud, Clock, AlertCircle, FileText, ArrowUp, ArrowDown, Trash2, Info, Eye, Hash, Calendar, MessageSquare, Maximize2, Minimize2, ExternalLink, Check, X, ZoomIn, ZoomOut } from 'lucide-react';
 
@@ -8,6 +9,7 @@ const StatusBadge = ({ status }) => {
 };
 
 const DesignerDashboard = ({ view = 'assigned' }) => {
+  const { refreshCalendar } = useOutletContext();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploadingTask, setUploadingTask] = useState(null); // Task object being uploaded to
@@ -231,6 +233,7 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
             if (verified) {
                 handleCloseModal();
                 setShowSuccessModal(true);
+                if (refreshCalendar) refreshCalendar();
             } else {
                 alert('Design sent, but we couldn\'t verify the sheet update yet. Please refresh in a minute.');
                 handleCloseModal();
@@ -364,34 +367,35 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
 
       {/* Upload Modal */}
       {uploadingTask && (
-        <div style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 60,
+        <div className="modal-overlay" style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 100,
             display: 'flex', alignItems: 'center', justifyContent: 'center'
         }}>
-           <div className="card" style={{ width: '100%', maxWidth: '500px', padding: '2rem' }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem' }}>Upload Design</h2>
-              <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', fontSize: '0.875rem' }}>
-                Provide the Google Drive link for <strong>{uploadingTask.campaignName}</strong>
+           <div className="modal-content card" style={{ width: '100%', maxWidth: '540px', padding: '2.5rem', boxShadow: 'var(--shadow-xl)' }}>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.5rem', letterSpacing: '-0.025em' }}>Upload Design</h2>
+              <p style={{ color: 'var(--text-muted)', marginBottom: '2rem', fontSize: '0.9rem' }}>
+                Provide the Google Drive link for <strong style={{ color: 'var(--text-main)' }}>{uploadingTask.campaignName}</strong>
               </p>
 
               {/* Order Instruction for Carousel/Story */}
               {['Carousel', 'Story (Image)'].includes(uploadingTask.postType) && (
                   <div style={{ 
                       marginBottom: '1.5rem', 
-                      padding: '0.75rem', 
-                      background: 'rgba(255, 152, 0, 0.1)', 
-                      border: '1px solid rgba(255, 152, 0, 0.3)',
-                      borderRadius: '6px', 
+                      padding: '1rem', 
+                      background: 'rgba(255, 152, 0, 0.08)', 
+                      border: '1px solid rgba(255, 152, 0, 0.2)',
+                      borderRadius: '12px', 
                       fontSize: '0.85rem', 
-                      color: '#ff9800',
+                      color: '#d97706',
                       display: 'flex',
-                      gap: '8px',
+                      gap: '10px',
                       alignItems: 'start',
                       textAlign: 'left'
                   }}>
-                      <AlertCircle size={16} style={{ marginTop: '2px', flexShrink: 0 }} />
+                      <AlertCircle size={18} style={{ marginTop: '2px', flexShrink: 0, color: '#f59e0b' }} />
                       <div>
-                          <strong>Important:</strong> Please ensure files are uploaded in the correct sequential order.
+                          <strong style={{ display: 'block', marginBottom: '2px' }}>Important Order Required</strong>
+                          Please ensure files are uploaded in the correct sequential order.
                       </div>
                   </div>
               )}
@@ -400,45 +404,45 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
                   {/* Processing Overlay */}
                   {(isUploading || isVerifying) && (
                       <div style={{
-                          position: 'absolute', inset: -20, background: 'rgba(255,255,255,0.8)', 
+                          position: 'absolute', inset: -15, background: 'rgba(255,255,255,0.92)', 
                           zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', 
-                          justifyContent: 'center', backdropFilter: 'blur(4px)', borderRadius: '12px',
-                          textAlign: 'center', padding: '2rem'
+                          justifyContent: 'center', backdropFilter: 'blur(8px)', borderRadius: '16px',
+                          textAlign: 'center', padding: '2rem', animation: 'fadeIn 0.2s ease-out'
                       }}>
-                          <div className="spinner" style={{ borderTopColor: 'var(--primary)', width: '48px', height: '48px', marginBottom: '1.5rem' }}></div>
+                          <div className="spinner" style={{ borderTopColor: 'var(--primary)', width: '56px', height: '56px', marginBottom: '1.5rem', borderWidth: '4px' }}></div>
                           <div style={{ fontWeight: 800, color: 'var(--primary)', fontSize: '1.25rem', marginBottom: '0.5rem' }}>
-                              {isVerifying ? 'Verifying Submission...' : 'Uploading to Sheets...'}
+                              {isVerifying ? 'Verifying Submission...' : 'Processing Upload...'}
                           </div>
-                          <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', maxWidth: '250px', lineHeight: 1.5 }}>
+                          <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', maxWidth: '280px', lineHeight: 1.6 }}>
                               {isVerifying 
-                                ? 'Almost there! Confirming your data has been safely appended to the database.' 
-                                : 'Sending your design to our secure servers. This might take a few moments.'}
+                                ? 'Finalizing your submission and confirming data integrity. Almost done!' 
+                                : 'Securely transferring your designs. This may take a moment depending on file size.'}
                           </div>
-                          {isVerifying && (
-                              <div style={{ marginTop: '1rem', padding: '4px 12px', background: 'var(--bg-subtle)', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>
-                                  Auto-checking every 10s
-                              </div>
-                          )}
+
                       </div>
                   )}
 
-                  {/* Drag Drop Zone for Links */}
+                  {/* Drag Drop Zone */}
                   <div 
                     style={{
                         border: `2px dashed ${dragActive ? 'var(--primary)' : 'var(--border)'}`,
-                        borderRadius: '8px',
-                        padding: '2rem',
+                        borderRadius: '16px',
+                        padding: '2.5rem 1.5rem',
                         textAlign: 'center',
-                        backgroundColor: dragActive ? 'var(--primary-light)' : 'transparent',
+                        backgroundColor: dragActive ? 'var(--primary-light)' : 'var(--bg-subtle)',
                         marginBottom: '1.5rem',
-                        transition: 'all 0.2s ease',
-                        cursor: isUploading ? 'default' : 'pointer' // Indicate clickable
+                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                        cursor: isUploading ? 'default' : 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '1rem'
                     }}
                     onDragEnter={isUploading ? null : handleDrag}
                     onDragLeave={isUploading ? null : handleDrag}
                     onDragOver={isUploading ? null : handleDrag}
                     onDrop={isUploading ? null : handleDrop}
-                    onClick={() => !isUploading && fileInputRef.current?.click()} // Trigger file browser
+                    onClick={() => !isUploading && fileInputRef.current?.click()}
                   >
                       <input 
                         type="file" 
@@ -448,235 +452,190 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
                         disabled={isUploading}
                         style={{ display: 'none' }} 
                       />
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', color: 'var(--text-muted)' }}>
-                         {filesToUpload.length > 0 ? (
-                            <div style={{ width: '100%' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1rem' }}>
-                                    <FileText size={32} color="var(--primary)" />
-                                    <div style={{ textAlign: 'left' }}>
-                                        <div style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '0.9rem' }}>
-                                            {filesToUpload.length} File{filesToUpload.length > 1 ? 's' : ''} Selected
-                                        </div>
-                                        <div style={{ fontSize: '0.75rem', color: 'var(--success)' }}>
-                                            Total Size: {(filesToUpload.reduce((acc, f) => acc + f.size, 0) / 1024 / 1024).toFixed(2)} MB
-                                        </div>
+                      
+                      {filesToUpload.length > 0 ? (
+                        <div style={{ width: '100%' }} onClick={e => e.stopPropagation()}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '1.5rem', padding: '0 10px' }}>
+                                <div style={{ width: 48, height: 48, borderRadius: '14px', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <FileText size={24} />
+                                </div>
+                                <div style={{ textAlign: 'left', flex: 1 }}>
+                                    <div style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '1rem' }}>
+                                        {filesToUpload.length} File{filesToUpload.length > 1 ? 's' : ''} Ready
                                     </div>
-                                    {!isUploading && (
-                                        <button 
-                                            type="button" 
-                                            onClick={(e) => { 
-                                                e.stopPropagation(); 
-                                                setFilesToUpload([]); 
-                                                if (fileInputRef.current) fileInputRef.current.value = '';
-                                            }}
-                                            className="btn btn-outline"
-                                            style={{ marginLeft: 'auto', padding: '2px 8px', fontSize: '0.75rem', height: 'auto' }}
-                                        >
-                                            Clear All
-                                        </button>
-                                    )}
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+                                        Total: {(filesToUpload.reduce((acc, f) => acc + f.size, 0) / 1024 / 1024).toFixed(2)} MB
+                                    </div>
                                 </div>
-                                
-                                <div style={{ 
-                                    maxHeight: '200px', 
-                                    overflowY: 'auto', 
-                                    border: '1px solid var(--border)', 
-                                    borderRadius: '6px',
-                                    background: 'var(--bg-body)',
-                                    marginBottom: '1rem'
-                                }}>
-                                    {filesToUpload.map((file, index) => (
-                                        <div 
-                                            key={`${file.name}-${index}`}
-                                            style={{ 
-                                                display: 'flex', 
-                                                alignItems: 'center', 
-                                                gap: '8px', 
-                                                padding: '8px 12px',
-                                                borderBottom: index === filesToUpload.length - 1 ? 'none' : '1px solid var(--border)',
-                                                fontSize: '0.85rem'
-                                            }}
-                                            onClick={(e) => e.stopPropagation()}
-                                        >
-                                            <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', width: '20px' }}>{index + 1}.</span>
-                                            <div style={{ 
-                                                flex: 1, 
-                                                whiteSpace: 'nowrap', 
-                                                overflow: 'hidden', 
-                                                textOverflow: 'ellipsis', 
-                                                textAlign: 'left',
-                                                color: 'var(--text-main)'
-                                            }} title={file.name}>
-                                                {file.name}
-                                            </div>
-                                            {!isUploading && (
-                                                <div style={{ display: 'flex', gap: '4px' }}>
-                                                    <button 
-                                                        type="button"
-                                                        onClick={(e) => { e.stopPropagation(); moveFileUp(index); }}
-                                                        disabled={index === 0}
-                                                        style={{ padding: '4px', border: 'none', background: 'none', cursor: index === 0 ? 'default' : 'pointer', color: index === 0 ? 'var(--border)' : 'var(--text-muted)' }}
-                                                    >
-                                                        <ArrowUp size={14} />
-                                                    </button>
-                                                    <button 
-                                                        type="button"
-                                                        onClick={(e) => { e.stopPropagation(); moveFileDown(index); }}
-                                                        disabled={index === filesToUpload.length - 1}
-                                                        style={{ padding: '4px', border: 'none', background: 'none', cursor: index === filesToUpload.length - 1 ? 'default' : 'pointer', color: index === filesToUpload.length - 1 ? 'var(--border)' : 'var(--text-muted)' }}
-                                                    >
-                                                        <ArrowDown size={14} />
-                                                    </button>
-                                                    <button 
-                                                        type="button"
-                                                        onClick={(e) => { e.stopPropagation(); removeFile(index); }}
-                                                        style={{ padding: '4px', border: 'none', background: 'none', cursor: 'pointer', color: '#EF4444' }}
-                                                    >
-                                                        <Trash2 size={14} />
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
+                                {!isUploading && (
+                                    <button 
+                                        type="button" 
+                                        onClick={() => { 
+                                            setFilesToUpload([]); 
+                                            if (fileInputRef.current) fileInputRef.current.value = '';
+                                        }}
+                                        className="btn btn-ghost"
+                                        style={{ color: 'var(--text-error)', padding: '8px', borderRadius: '10px' }}
+                                        title="Clear All"
+                                    >
+                                        <Trash2 size={18} />
+                                    </button>
+                                )}
                             </div>
-                         ) : designUrl ? (
-                            <>
-                                <FileText size={48} color="var(--primary)" />
-                                <div>
-                                    <div style={{ fontWeight: 600, color: 'var(--text-main)', wordBreak: 'break-all', fontSize: '0.9rem' }}>
-                                        {designUrl}
+                            
+                            <div style={{ 
+                                maxHeight: '180px', 
+                                overflowY: 'auto', 
+                                border: '1px solid var(--border)', 
+                                borderRadius: '12px',
+                                background: 'var(--bg-card)',
+                                boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)'
+                            }}>
+                                {filesToUpload.map((file, index) => (
+                                    <div 
+                                        key={`${file.name}-${index}`}
+                                        style={{ 
+                                            display: 'flex', 
+                                            alignItems: 'center', 
+                                            gap: '8px', 
+                                            padding: '10px 12px',
+                                            borderBottom: index === filesToUpload.length - 1 ? 'none' : '1px solid var(--border)',
+                                            fontSize: '0.8rem'
+                                        }}
+                                    >
+                                        <span style={{ color: 'var(--text-muted)', fontWeight: 700, minWidth: '18px' }}>{index + 1}</span>
+                                        <div style={{ 
+                                            flex: 1, 
+                                            whiteSpace: 'nowrap', 
+                                            overflow: 'hidden', 
+                                            textOverflow: 'ellipsis', 
+                                            textAlign: 'left',
+                                            color: 'var(--text-main)',
+                                            fontWeight: 500
+                                        }} title={file.name}>
+                                            {file.name}
+                                        </div>
+                                        {!isUploading && (
+                                            <div style={{ display: 'flex', gap: '2px' }}>
+                                                <button type="button" onClick={() => moveFileUp(index)} disabled={index === 0} style={{ padding: '6px', border: 'none', background: 'none', cursor: index === 0 ? 'default' : 'pointer', color: index === 0 ? 'var(--border)' : 'var(--text-muted)' }}><ArrowUp size={14} /></button>
+                                                <button type="button" onClick={() => moveFileDown(index)} disabled={index === filesToUpload.length - 1} style={{ padding: '6px', border: 'none', background: 'none', cursor: index === filesToUpload.length - 1 ? 'default' : 'pointer', color: index === filesToUpload.length - 1 ? 'var(--border)' : 'var(--text-muted)' }}><ArrowDown size={14} /></button>
+                                                <button type="button" onClick={() => removeFile(index)} style={{ padding: '6px', border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-error)' }}><X size={14} /></button>
+                                            </div>
+                                        )}
                                     </div>
-                                    <div style={{ fontSize: '0.75rem', color: 'var(--success)' }}>Link Ready</div>
-                                </div>
-                            </>
-                         ) : (
-                            <>
-                                <UploadCloud size={48} />
-                                <div>
-                                    <span style={{ color: 'var(--primary)', fontWeight: 600 }}>Drag & Drop</span> Files or Drive Link here
-                                </div>
-                                <div style={{ fontSize: '0.75rem' }}>Supports Direct File Uploads (Multiple) & Drive Links</div>
-                            </>
-                         )}
-                      </div>
+                                ))}
+                            </div>
+                        </div>
+                      ) : designUrl ? (
+                         <>
+                             <div style={{ width: 56, height: 56, borderRadius: '16px', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                 <ExternalLink size={28} />
+                             </div>
+                             <div style={{ textAlign: 'center' }}>
+                                 <div style={{ fontWeight: 700, color: 'var(--text-main)', wordBreak: 'break-all', fontSize: '0.95rem', marginBottom: '4px' }}>
+                                     Link Spotted!
+                                 </div>
+                                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', maxWidth: '200px' }}>{designUrl}</div>
+                             </div>
+                         </>
+                      ) : (
+                         <>
+                             <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '8px' }}>
+                                 <UploadCloud size={32} />
+                             </div>
+                             <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-main)' }}>
+                                 Drop files or <span style={{ color: 'var(--primary)' }}>paste a link</span>
+                             </div>
+                             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Supports Multiple Files or Google Drive Links</div>
+                         </>
+                      )}
                   </div>
 
-                  {/* Link Input - Only show if no files selected */}
+                  {/* Link Input Fallback */}
                   {filesToUpload.length === 0 && (
-                  <div style={{ marginBottom: '1.5rem', position: 'relative' }}>
+                  <div style={{ marginBottom: '2rem' }}>
                       <div style={{ 
-                          display: 'flex', alignItems: 'center', gap: '8px', 
-                          fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '8px',
-                          textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600
+                          display: 'flex', alignItems: 'center', gap: '12px', 
+                          fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '12px',
+                          textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 800
                       }}>
                         <span style={{ flex: 1, height: '1px', background: 'var(--border)' }}></span>
-                        OR PASTE LINK
+                        Or use a link instead
                         <span style={{ flex: 1, height: '1px', background: 'var(--border)' }}></span>
                       </div>
-                      <input 
-                        type="text" 
-                        placeholder="https://drive.google.com/..."
-                        value={designUrl}
-                        onChange={(e) => setDesignUrl(e.target.value)}
-                        disabled={isUploading}
-                        style={{ width: '100%' }}
-                      />
+                      <div style={{ position: 'relative' }}>
+                          <ExternalLink size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                          <input 
+                            type="text" 
+                            placeholder="Paste Google Drive link here..."
+                            value={designUrl}
+                            onChange={(e) => setDesignUrl(e.target.value)}
+                            disabled={isUploading}
+                            className="input"
+                            style={{ width: '100%', paddingLeft: '40px', borderRadius: '12px' }}
+                          />
+                      </div>
                   </div>
                   )}
 
-                  {/* Thumbnail Section - Only for Reels */}
+                  {/* Thumbnail Section */}
                   {uploadingTask.postType === 'Reel' && (
                   <div style={{ 
-                      marginTop: '2rem', 
-                      padding: '1.5rem', 
-                      background: 'var(--bg-subtle)', 
-                      borderRadius: '8px', 
-                      border: '1px solid var(--border)',
-                      marginBottom: '1.5rem'
+                      marginTop: '2rem', padding: '1.5rem', background: 'var(--bg-subtle)', 
+                      borderRadius: '16px', border: '1px solid var(--border)', marginBottom: '2rem'
                   }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
-                          <FileText size={18} color="var(--primary)" />
-                          <h3 style={{ fontSize: '0.9rem', fontWeight: 600 }}>Thumbnail / Cover Image (Mandatory for Reels)</h3>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.25rem' }}>
+                          <h3 style={{ fontSize: '0.9rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Required: Thumbnail</h3>
                       </div>
 
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                           <div 
                               onClick={() => !isUploading && thumbInputRef.current?.click()}
                               style={{ 
-                                  border: `1px dashed ${thumbnailFile ? 'var(--primary)' : 'var(--border)'}`,
-                                  borderRadius: '6px',
-                                  padding: '1rem',
-                                  textAlign: 'center',
-                                  cursor: isUploading ? 'default' : 'pointer',
-                                  background: 'var(--bg-card)',
-                                  fontSize: '0.8rem'
+                                  border: `1.5px dashed ${thumbnailFile ? 'var(--primary)' : 'var(--border)'}`,
+                                  borderRadius: '12px', padding: '1.25rem', textAlign: 'center',
+                                  cursor: isUploading ? 'default' : 'pointer', background: 'var(--bg-card)',
+                                  fontSize: '0.85rem', transition: 'all 0.2s ease'
                               }}
                           >
-                              <input 
-                                  type="file" 
-                                  ref={thumbInputRef} 
-                                  accept="image/*"
-                                  disabled={isUploading}
-                                  onChange={(e) => {
-                                      const file = e.target.files?.[0];
-                                      if (file) {
-                                          if (!file.type.startsWith('image/')) {
-                                              alert('Please upload an image file for the thumbnail.');
-                                              return;
-                                          }
-                                          setThumbnailFile(file);
-                                          setThumbnailUrl('');
-                                      }
-                                  }} 
-                                  style={{ display: 'none' }} 
-                              />
+                              <input type="file" ref={thumbInputRef} accept="image/*" disabled={isUploading} onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file && file.type.startsWith('image/')) {
+                                      setThumbnailFile(file);
+                                      setThumbnailUrl('');
+                                  } else if (file) {
+                                      alert('Please upload an image for the thumbnail.');
+                                  }
+                              }} style={{ display: 'none' }} />
                               {thumbnailFile ? (
-                                  <div style={{ color: 'var(--success)', fontWeight: 600 }}>
-                                      ✅ {thumbnailFile.name}
+                                  <div style={{ color: 'var(--primary)', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                      <Check size={18} /> {thumbnailFile.name}
                                   </div>
                               ) : (
-                                  <div style={{ color: 'var(--text-muted)' }}>
-                                      Click to Upload Thumbnail Image
-                                  </div>
+                                  <div style={{ color: 'var(--text-muted)', fontWeight: 500 }}>Upload Cover Image</div>
                               )}
-                          </div>
-
-                          <div style={{ 
-                              display: 'flex', alignItems: 'center', gap: '8px', 
-                              fontSize: '0.65rem', color: 'var(--text-muted)',
-                              textTransform: 'uppercase', letterSpacing: '0.5px'
-                          }}>
-                            <span style={{ flex: 1, height: '1px', background: 'var(--border)' }}></span>
-                            OR PASTE THUMBNAIL LINK
-                            <span style={{ flex: 1, height: '1px', background: 'var(--border)' }}></span>
                           </div>
 
                           <input 
                               type="text" 
-                              placeholder="Thumbnail Drive Link..."
+                              placeholder="Or paste thumbnail Drive link..."
                               value={thumbnailUrl}
                               disabled={isUploading}
                               onChange={(e) => {
                                   setThumbnailUrl(e.target.value);
                                   setThumbnailFile(null);
                               }}
-                              style={{ width: '100%', fontSize: '0.85rem' }}
+                              className="input"
+                              style={{ width: '100%', fontSize: '0.85rem', borderRadius: '10px' }}
                           />
                       </div>
                   </div>
                   )}
 
-                  <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                      <button type="button" className="btn btn-ghost" onClick={handleCloseModal} disabled={isUploading}>Cancel</button>
-                      <button type="submit" className="btn btn-primary" disabled={isUploading}>
-                          {isUploading ? (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  <div className="spinner"></div> Processing...
-                              </div>
-                          ) : (
-                              filesToUpload.length > 0 ? `Upload ${filesToUpload.length} File${filesToUpload.length > 1 ? 's' : ''}` : 'Submit Design'
-                          )}
+                  <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '1rem' }}>
+                      <button type="button" className="btn btn-ghost" onClick={handleCloseModal} disabled={isUploading} style={{ borderRadius: '12px', padding: '0.75rem 1.5rem' }}>Cancel</button>
+                      <button type="submit" className="btn btn-primary" disabled={isUploading} style={{ borderRadius: '12px', padding: '0.75rem 2rem', fontWeight: 700 }}>
+                          {isUploading ? 'Processing...' : (filesToUpload.length > 0 ? `Upload ${filesToUpload.length} Files` : 'Submit Design')}
                       </button>
                   </div>
               </form>
@@ -686,21 +645,21 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
 
       {/* Success Modal */}
       {showSuccessModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 110 }}>
-            <div className="card" style={{ width: '100%', maxWidth: '400px', textAlign: 'center', padding: '2rem' }}>
-                <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--status-uploaded)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
-                    <UploadCloud size={24} />
+        <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 110 }}>
+            <div className="modal-content card" style={{ width: '100%', maxWidth: '400px', textAlign: 'center', padding: '2.5rem', boxShadow: 'var(--shadow-xl)' }}>
+                <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--success)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', boxShadow: '0 8px 16px -4px rgba(16, 185, 129, 0.4)' }}>
+                    <Check size={32} strokeWidth={3} />
                 </div>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.5rem' }}>Design Uploaded!</h3>
-                <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
-                    Your design has been successfully submitted for review.
+                <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.75rem', letterSpacing: '-0.025em' }}>Submission Sent!</h3>
+                <p style={{ color: 'var(--text-muted)', marginBottom: '2rem', lineHeight: 1.6 }}>
+                    Your design has been successfully uploaded and the client has been notified.
                 </p>
                 <button 
                     onClick={handleSuccessClose} 
                     className="btn btn-primary" 
-                    style={{ width: '100%', justifyContent: 'center' }}
+                    style={{ width: '100%', padding: '1rem', borderRadius: '14px', fontWeight: 700, fontSize: '1rem' }}
                 >
-                    OK
+                    Back to Dashboard
                 </button>
             </div>
         </div>
@@ -708,16 +667,16 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
 
       {/* Task Details Modal */}
       {selectedTask && (
-        <div style={{ 
+        <div className="modal-overlay" style={{ 
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
           background: 'rgba(0,0,0,0.7)', zIndex: 60, 
           display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
           backdropFilter: 'blur(4px)'
         }}>
-          <div style={{ 
+          <div className="modal-content card" style={{ 
             background: 'var(--bg-card)', padding: isPreviewExpanded ? '1.5rem' : '2.5rem', borderRadius: '24px', 
             width: '100%', maxWidth: isPreviewExpanded ? '1200px' : '1000px', maxHeight: '95vh', overflowY: 'auto',
-            border: '1px solid var(--border)', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
+            border: '1px solid var(--border)', boxShadow: 'var(--shadow-xl)',
             transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '1.5rem' }}>
@@ -756,11 +715,11 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
                {!isPreviewExpanded && (
                <div>
                   {selectedTask.status === 'Rejected' && selectedTask.feedback && (
-                    <div style={{ marginBottom: '2rem', padding: '1.25rem', background: '#FFF5F5', border: '1.5px solid #FED7D7', borderRadius: '16px' }}>
-                        <label style={{ fontSize: '0.75rem', color: '#C53030', textTransform: 'uppercase', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', letterSpacing: '0.05em' }}>
+                    <div style={{ marginBottom: '2rem', padding: '1.25rem', background: 'var(--bg-error-subtle)', border: '1.5px solid var(--border)', borderRadius: '16px' }}>
+                        <label style={{ fontSize: '0.75rem', color: 'var(--text-error)', textTransform: 'uppercase', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', letterSpacing: '0.05em' }}>
                             <AlertCircle size={16} /> REVISION FEEDBACK
                         </label>
-                        <div style={{ color: '#9B2C2C', fontSize: '0.95rem', fontWeight: 500, lineHeight: 1.5 }}>{selectedTask.feedback}</div>
+                        <div style={{ color: 'var(--text-error)', fontSize: '0.95rem', fontWeight: 500, lineHeight: 1.5 }}>{selectedTask.feedback}</div>
                     </div>
                   )}
 
@@ -849,7 +808,7 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
                                      return (
                                          <div style={{ padding: '2.5rem 1.5rem', width: '100%', background: 'var(--bg-card)', color: 'var(--text-main)', height: '100%', overflowY: 'auto' }}>
                                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '2rem', borderBottom: '2px solid var(--primary-light)', paddingBottom: '1rem' }}>
-                                                 <div style={{ background: 'var(--bg-success-subtle)', color: 'var(--text-success)', padding: '8px', borderRadius: '12px' }}>
+                                                 <div style={{ background: 'var(--primary-light)', color: 'var(--primary)', padding: '8px', borderRadius: '12px' }}>
                                                     <Check size={28} />
                                                  </div>
                                                  <div>
@@ -913,7 +872,7 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
                         </div>
                    ) : (
                         <div style={{ padding: '4rem 2rem', textAlign: 'center', background: 'var(--bg-subtle)', border: '2px dashed var(--border)', borderRadius: '20px', color: 'var(--text-muted)', width: '100%' }}>
-                             <div style={{ background: 'rgba(52, 152, 219, 0.08)', width: '72px', height: '72px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
+                             <div style={{ background: 'var(--primary-light)', width: '72px', height: '72px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
                                  <Clock size={36} style={{ color: 'var(--primary)' }} />
                              </div>
                              <h3 style={{ fontWeight: 800, color: 'var(--text-main)', fontSize: '1.25rem', marginBottom: '10px' }}>Upload Required</h3>
@@ -954,7 +913,7 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
                 {selectedTask.status !== 'Approved' && (
                     <button 
                          className="btn btn-primary" 
-                         style={{ background: 'var(--primary)', border: 'none', borderRadius: '10px', padding: '0.75rem 2rem' }} 
+                         style={{ borderRadius: '12px', padding: '0.75rem 2rem' }} 
                          onClick={() => { handleUploadClick(selectedTask); setSelectedTask(null); setIsPreviewExpanded(false); }}
                     >
                          <UploadCloud size={18} /> {selectedTask.status === 'Rejected' ? 'Re-upload Design' : 'Proceed to Upload'}
