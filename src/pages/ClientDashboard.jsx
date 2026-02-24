@@ -579,7 +579,7 @@ const ClientDashboard = () => {
                                 fontSize: '0.9rem',
                                 resize: 'vertical'
                             }}
-                            placeholder="Write your caption here..."
+                            placeholder="Write a draft or some ideas here, then click ✨ Auto-Generate to create a better caption &amp; hashtags..."
                           />
                       </div>
 
