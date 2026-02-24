@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { dataService } from '../utils/dataService';
-import { Check, X, Plus, Trash2, Clock, Calendar, Maximize2, Minimize2, ExternalLink, ZoomIn, ZoomOut } from 'lucide-react';
+import { Check, X, Plus, Trash2, Clock, Calendar, Maximize2, Minimize2, ExternalLink, ZoomIn, ZoomOut, Hash, MessageSquare } from 'lucide-react';
 import LoadingScreen from '../components/LoadingScreen';
 
 const StatusBadge = ({ status }) => {
@@ -368,6 +368,14 @@ const ClientDashboard = () => {
                             );
                         })()}
 
+                        {/* Social Content Display (Front) */}
+                        {(!task.postType || !task.postType.includes('Reel')) && (task.caption || task.hashtags) && (
+                            <div style={{ marginTop: '0.75rem', padding: '0.75rem', background: 'var(--primary-light)', borderRadius: '8px', fontSize: '0.8rem', border: '1px solid var(--primary)', marginBottom: '0.5rem' }}>
+                                {task.caption && <div style={{ marginBottom: '4px', fontStyle: 'italic', color: 'var(--text-main)', lineHeight: '1.3' }}>"{task.caption.substring(0, 80)}{task.caption.length > 80 ? '...' : ''}"</div>}
+                                {task.hashtags && <div style={{ color: 'var(--primary)', fontWeight: 600, display: 'flex', gap: '4px', alignItems: 'center' }}><Hash size={12} /> {task.hashtags}</div>}
+                            </div>
+                        )}
+
                         {/* Actions */}
                         <div style={{ marginTop: 'auto', width: '100%' }}>
                             {task.status === 'Design Uploaded' && (
@@ -513,6 +521,7 @@ const ClientDashboard = () => {
                       </div>
                   </div>
 
+                  {selectedTask.status === 'Approved' && (
                   <div style={{ marginBottom: '1.5rem' }}>
                       {/* Caption/Comment Section */}
                       <div style={{ marginBottom: '1.5rem' }}>
@@ -597,6 +606,7 @@ const ClientDashboard = () => {
                           </button>
                       </div>
                   </div>
+                  )}
                </div>
                )}
 
@@ -800,13 +810,6 @@ const ClientDashboard = () => {
                         </button>
                     </>
                 )}
-                <button 
-                    onClick={() => { setSelectedTask(null); setIsPreviewExpanded(false); }} 
-                    className="btn btn-ghost"
-                    style={{ borderRadius: '10px' }}
-                >
-                    Close Modal
-                </button>
             </div>
           </div>
         </div>

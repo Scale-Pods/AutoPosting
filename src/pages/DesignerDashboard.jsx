@@ -76,54 +76,22 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
     e.stopPropagation();
     setDragActive(false);
 
-    // Helper to extract Drive Link
-    const findDriveLink = (text) => {
-        if (!text) return null;
-        const match = text.match(/https?:\/\/(drive\.google\.com|docs\.google\.com)[^\s"']+/);
-        return match ? match[0] : null;
-    };
-    
-    // 1. Try to get URL from Text/URI
-    const droppedText = e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('text/uri-list');
-    let foundUrl = findDriveLink(droppedText);
-
-    // 2. Try to get URL from HTML (common when dragging links from web)
-    if (!foundUrl) {
-        const droppedHtml = e.dataTransfer.getData('text/html');
-        if (droppedHtml) {
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(droppedHtml, 'text/html');
-            const link = doc.querySelector('a[href*="drive.google.com"], a[href*="docs.google.com"]');
-            if (link) {
-                foundUrl = link.href;
-            }
-        }
-    }
-
-    if (foundUrl) {
-        setDesignUrl(foundUrl);
-        setFilesToUpload([]); // Clear files if link found
-        return;
-    }
-    
-    // 3. Check for file drops (Local files)
+    // Check for file drops (Local files)
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
         const droppedFiles = Array.from(e.dataTransfer.files);
         // Append new files to existing ones
         setFilesToUpload(prev => [...prev, ...droppedFiles]);
-        setDesignUrl(''); // Clear link if files found
         return;
     }
 
-    // 4. Nothing found
-    alert('Please drop a valid Google Drive link or files.');
+    // Nothing found
+    alert('Please drop valid files.');
   };
 
   const handleFileSelect = (e) => {
     if (e.target.files && e.target.files.length > 0) {
         const selectedFiles = Array.from(e.target.files);
         setFilesToUpload(prev => [...prev, ...selectedFiles]);
-        setDesignUrl('');
     }
   };
 
@@ -199,12 +167,12 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
     const isReel = uploadingTask.postType === 'Reel';
 
     if (!hasDesign) {
-        alert('Design (Link or Files) is mandatory.');
+        alert('Design files are mandatory.');
         return;
     }
 
     if (isReel && !hasThumbnail) {
-        alert('A Thumbnail (Link or File) is mandatory for Reels.');
+        alert('A thumbnail file is mandatory for Reels.');
         return;
     }
 
@@ -215,16 +183,7 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
         let uploadResult = null;
 
         // Phase 1: Upload to Webhook
-        if (filesToUpload.length > 0 || thumbnailFile) {
-             uploadResult = await dataService.uploadDesignFile(uploadingTask, filesToUpload, thumbnailFile || thumbnailUrl);
-        } else {
-             if (!designUrl.includes('drive.google.com') && !designUrl.includes('docs.google.com')) {
-                 alert('Please provide a valid Google Drive link.');
-                 setIsUploading(false);
-                 return;
-             }
-             uploadResult = await dataService.uploadDesign(uploadingTask, designUrl, thumbnailUrl);
-        }
+        uploadResult = await dataService.uploadDesignFile(uploadingTask, filesToUpload, thumbnailFile);
 
         if (uploadResult) {
             // Phase 2: Wait for Sheet Sync (Polling)
@@ -526,57 +485,19 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
                                 ))}
                             </div>
                         </div>
-                      ) : designUrl ? (
-                         <>
-                             <div style={{ width: 56, height: 56, borderRadius: '16px', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                 <ExternalLink size={28} />
-                             </div>
-                             <div style={{ textAlign: 'center' }}>
-                                 <div style={{ fontWeight: 700, color: 'var(--text-main)', wordBreak: 'break-all', fontSize: '0.95rem', marginBottom: '4px' }}>
-                                     Link Spotted!
-                                 </div>
-                                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', maxWidth: '200px' }}>{designUrl}</div>
-                             </div>
-                         </>
                       ) : (
                          <>
                              <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '8px' }}>
                                  <UploadCloud size={32} />
                              </div>
                              <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-main)' }}>
-                                 Drop files or <span style={{ color: 'var(--primary)' }}>paste a link</span>
+                                 Drop files or <span style={{ color: 'var(--primary)' }}>browse</span>
                              </div>
-                             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Supports Multiple Files or Google Drive Links</div>
+                             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Supports Multiple Files</div>
                          </>
                       )}
                   </div>
 
-                  {/* Link Input Fallback */}
-                  {filesToUpload.length === 0 && (
-                  <div style={{ marginBottom: '2rem' }}>
-                      <div style={{ 
-                          display: 'flex', alignItems: 'center', gap: '12px', 
-                          fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '12px',
-                          textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 800
-                      }}>
-                        <span style={{ flex: 1, height: '1px', background: 'var(--border)' }}></span>
-                        Or use a link instead
-                        <span style={{ flex: 1, height: '1px', background: 'var(--border)' }}></span>
-                      </div>
-                      <div style={{ position: 'relative' }}>
-                          <ExternalLink size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                          <input 
-                            type="text" 
-                            placeholder="Paste Google Drive link here..."
-                            value={designUrl}
-                            onChange={(e) => setDesignUrl(e.target.value)}
-                            disabled={isUploading}
-                            className="input"
-                            style={{ width: '100%', paddingLeft: '40px', borderRadius: '12px' }}
-                          />
-                      </div>
-                  </div>
-                  )}
 
                   {/* Thumbnail Section */}
                   {uploadingTask.postType === 'Reel' && (
@@ -615,19 +536,6 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
                                   <div style={{ color: 'var(--text-muted)', fontWeight: 500 }}>Upload Cover Image</div>
                               )}
                           </div>
-
-                          <input 
-                              type="text" 
-                              placeholder="Or paste thumbnail Drive link..."
-                              value={thumbnailUrl}
-                              disabled={isUploading}
-                              onChange={(e) => {
-                                  setThumbnailUrl(e.target.value);
-                                  setThumbnailFile(null);
-                              }}
-                              className="input"
-                              style={{ width: '100%', fontSize: '0.85rem', borderRadius: '10px' }}
-                          />
                       </div>
                   </div>
                   )}
@@ -744,7 +652,7 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
                       </div>
                   </div>
 
-                  {(selectedTask.caption || selectedTask.hashtags) && (
+                  {selectedTask.status === 'Approved' && (selectedTask.caption || selectedTask.hashtags) && (
                     <div style={{ marginBottom: '1.5rem', padding: '1.5rem', background: 'var(--primary-light)', borderRadius: '16px', border: '1px solid var(--primary)' }}>
                         <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.25rem', color: 'var(--primary)', fontSize: '0.95rem', fontWeight: 800 }}>
                             <MessageSquare size={18} /> SOCIAL METADATA
@@ -903,13 +811,6 @@ const DesignerDashboard = ({ view = 'assigned' }) => {
                 justifyContent: 'flex-end',
                 gap: '12px'
             }}>
-                <button 
-                    onClick={() => { setSelectedTask(null); setIsPreviewExpanded(false); }} 
-                    className="btn btn-ghost"
-                    style={{ borderRadius: '10px' }}
-                >
-                    Close
-                </button>
                 {selectedTask.status !== 'Approved' && (
                     <button 
                          className="btn btn-primary" 
